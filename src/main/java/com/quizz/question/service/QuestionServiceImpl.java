@@ -1,5 +1,6 @@
 package com.quizz.question.service;
 
+import com.quizz.question.common.constants.ErrorConstants;
 import com.quizz.question.dto.CreateQuestionRequest;
 import com.quizz.question.dto.QuestionDTO;
 import com.quizz.question.dto.UpdateQuestionRequest;
@@ -17,6 +18,10 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
+/**
+ * Service implementation for Question management
+ * Implements business logic with validation and authorization
+ */
 @Service
 @RequiredArgsConstructor
 @Slf4j
@@ -43,7 +48,7 @@ public class QuestionServiceImpl implements QuestionService {
         log.info("Fetching question with ID: {}", id);
 
         Question question = questionRepository.findById(id)
-                .orElseThrow(() -> new QuestionNotFoundException("Question not found with ID: " + id));
+                .orElseThrow(() -> new QuestionNotFoundException(String.format(ErrorConstants.QUESTION_NOT_FOUND, id)));
 
         return questionMapper.toDTO(question);
     }
@@ -76,17 +81,16 @@ public class QuestionServiceImpl implements QuestionService {
         log.info("Updating question {} by user {} (admin: {})", id, userId, isAdmin);
 
         Question question = questionRepository.findById(id)
-                .orElseThrow(() -> new QuestionNotFoundException("Question not found with ID: " + id));
+                .orElseThrow(() -> new QuestionNotFoundException(String.format(ErrorConstants.QUESTION_NOT_FOUND, id)));
 
         // Authorization check
         if (!isAdmin && !question.getCreatedBy().equals(userId)) {
-            throw new ForbiddenException("You don't have permission to update this question");
+            throw new ForbiddenException(ErrorConstants.FORBIDDEN_UPDATE);
         }
 
         // Validation: Cannot edit non-DRAFT questions unless changing status only
         if (question.getStatus() != QuestionStatus.DRAFT && !isStatusOnlyChange(question, request)) {
-            throw new ValidationException("Only DRAFT questions can be fully edited. " +
-                    "For other statuses, only status changes are allowed.");
+            throw new ValidationException(ErrorConstants.ONLY_DRAFT_EDITABLE);
         }
 
         // Validate status transitions
@@ -106,16 +110,16 @@ public class QuestionServiceImpl implements QuestionService {
         log.info("Deleting question {} by user {} (admin: {})", id, userId, isAdmin);
 
         Question question = questionRepository.findById(id)
-                .orElseThrow(() -> new QuestionNotFoundException("Question not found with ID: " + id));
+                .orElseThrow(() -> new QuestionNotFoundException(String.format(ErrorConstants.QUESTION_NOT_FOUND, id)));
 
         // Authorization check
         if (!isAdmin && !question.getCreatedBy().equals(userId)) {
-            throw new ForbiddenException("You don't have permission to delete this question");
+            throw new ForbiddenException(ErrorConstants.FORBIDDEN_DELETE);
         }
 
         // Only DRAFT questions can be deleted
         if (question.getStatus() != QuestionStatus.DRAFT) {
-            throw new ValidationException("Only DRAFT questions can be deleted");
+            throw new ValidationException(ErrorConstants.ONLY_DRAFT_DELETABLE);
         }
 
         questionRepository.delete(question);

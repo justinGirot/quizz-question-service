@@ -1,5 +1,7 @@
 package com.quizz.question.controller;
 
+import com.quizz.question.common.constants.ApiConstants;
+import com.quizz.question.config.RequestSanitizationInterceptor;
 import com.quizz.question.dto.CreateQuestionRequest;
 import com.quizz.question.dto.QuestionDTO;
 import com.quizz.question.dto.UpdateQuestionRequest;
@@ -26,18 +28,23 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * REST Controller for Question management
+ * Handles CRUD operations with validation and sanitization
+ */
 @RestController
-@RequestMapping("/api/questions")
+@RequestMapping(ApiConstants.QUESTIONS_PATH)
 @RequiredArgsConstructor
 @Slf4j
-@Tag(name = "Questions", description = "Question management API")
+@Tag(name = "Questions", description = "Question management API with workflow support")
 @SecurityRequirement(name = "cookieAuth")
 public class QuestionController {
 
     private final QuestionService questionService;
+    private final RequestSanitizationInterceptor sanitizationInterceptor;
 
     @PostMapping
-    @Operation(summary = "Create a new question", description = "Creates a new question in DRAFT status")
+    @Operation(summary = "Create a new question", description = "Creates a new question in DRAFT status with sanitized input")
     @ApiResponses({
         @ApiResponse(responseCode = "201", description = "Question created successfully",
                 content = @Content(schema = @Schema(implementation = QuestionDTO.class))),
@@ -52,6 +59,10 @@ public class QuestionController {
         Long userId = jwtAuth.getUserId();
 
         log.info("Creating question for user: {}", userId);
+
+        // Sanitize input data
+        sanitizationInterceptor.sanitize(request);
+
         QuestionDTO createdQuestion = questionService.createQuestion(request, userId);
 
         return ResponseEntity.status(HttpStatus.CREATED).body(createdQuestion);
@@ -83,10 +94,10 @@ public class QuestionController {
     })
     public ResponseEntity<List<QuestionDTO>> getQuestions(
             @Parameter(description = "Filter by question statuses")
-            @RequestParam(required = false, name = "statuses[]") List<QuestionStatus> statuses,
+            @RequestParam(required = false, name = ApiConstants.STATUSES_PARAM) List<QuestionStatus> statuses,
 
             @Parameter(description = "Filter by categories")
-            @RequestParam(required = false, name = "categories[]") List<String> categories) {
+            @RequestParam(required = false, name = ApiConstants.CATEGORIES_PARAM) List<String> categories) {
 
         log.info("Fetching questions with filters - statuses: {}, categories: {}", statuses, categories);
         List<QuestionDTO> questions = questionService.getQuestions(statuses, categories);
@@ -94,7 +105,7 @@ public class QuestionController {
         return ResponseEntity.ok(questions);
     }
 
-    @GetMapping("/categories")
+    @GetMapping(ApiConstants.CATEGORIES_PATH)
     @Operation(summary = "Get all categories", description = "Retrieves all unique question categories")
     @ApiResponses({
         @ApiResponse(responseCode = "200", description = "Categories retrieved successfully",
@@ -108,8 +119,8 @@ public class QuestionController {
         return ResponseEntity.ok(categories);
     }
 
-    @PutMapping("/{id}")
-    @Operation(summary = "Update a question", description = "Updates an existing question. Only DRAFT questions can be fully edited.")
+    @PutMapping(ApiConstants.ID_PATH_PARAM)
+    @Operation(summary = "Update a question", description = "Updates an existing question with sanitized input. Only DRAFT questions can be fully edited.")
     @ApiResponses({
         @ApiResponse(responseCode = "200", description = "Question updated successfully",
                 content = @Content(schema = @Schema(implementation = QuestionDTO.class))),
@@ -128,15 +139,19 @@ public class QuestionController {
         boolean isAdmin = jwtAuth.isAdmin();
 
         log.info("Updating question {} by user {} (admin: {})", id, userId, isAdmin);
+
+        // Sanitize input data
+        sanitizationInterceptor.sanitize(request);
+
         QuestionDTO updatedQuestion = questionService.updateQuestion(id, request, userId, isAdmin);
 
         return ResponseEntity.ok(updatedQuestion);
     }
 
-    @DeleteMapping("/{id}")
+    @DeleteMapping(ApiConstants.ID_PATH_PARAM)
     @Operation(summary = "Delete a question", description = "Deletes a question. Only DRAFT questions can be deleted.")
     @ApiResponses({
-        @ApiResponse(responseCode = "204", description = "Question deleted successfully"),
+        @ApiResponse(responseCode = "200", description = "Question deleted successfully"),
         @ApiResponse(responseCode = "400", description = "Cannot delete non-DRAFT question"),
         @ApiResponse(responseCode = "403", description = "Forbidden - not the owner or admin"),
         @ApiResponse(responseCode = "404", description = "Question not found"),
@@ -153,6 +168,6 @@ public class QuestionController {
         log.info("Deleting question {} by user {} (admin: {})", id, userId, isAdmin);
         questionService.deleteQuestion(id, userId, isAdmin);
 
-        return ResponseEntity.ok(Map.of("message", "Question deleted successfully"));
+        return ResponseEntity.ok(Map.of("message", ApiConstants.QUESTION_DELETED_MESSAGE));
     }
 }

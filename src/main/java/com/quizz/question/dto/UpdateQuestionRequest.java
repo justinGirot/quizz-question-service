@@ -1,9 +1,11 @@
 package com.quizz.question.dto;
 
+import com.quizz.question.common.constants.ValidationConstants;
 import com.quizz.question.model.DifficultyLevel;
 import com.quizz.question.model.QuestionStatus;
 import com.quizz.question.model.QuestionType;
 import com.quizz.question.validation.AtLeastOneCorrectAnswer;
+import com.quizz.question.validation.Sanitized;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.*;
 import lombok.*;
@@ -18,30 +20,39 @@ import java.util.List;
 @AtLeastOneCorrectAnswer
 public class UpdateQuestionRequest {
 
-    @NotBlank(message = "Question text is required")
-    @Size(min = 10, max = 1000, message = "Question text must be between 10 and 1000 characters")
+    @NotBlank(message = ValidationConstants.QUESTION_TEXT_REQUIRED)
+    @Size(min = ValidationConstants.QUESTION_TEXT_MIN_LENGTH,
+          max = ValidationConstants.QUESTION_TEXT_MAX_LENGTH,
+          message = ValidationConstants.QUESTION_TEXT_SIZE)
+    @Sanitized(type = Sanitized.SanitizationType.TEXT)
     private String text;
 
-    @NotNull(message = "Question type is required")
+    @NotNull(message = ValidationConstants.TYPE_REQUIRED)
     private QuestionType type;
 
-    @NotNull(message = "Status is required")
+    @NotNull(message = ValidationConstants.STATUS_REQUIRED)
     private QuestionStatus status;
 
-    @NotBlank(message = "Category is required")
-    @Size(min = 3, max = 100, message = "Category must be between 3 and 100 characters")
+    @NotBlank(message = ValidationConstants.CATEGORY_REQUIRED)
+    @Size(min = ValidationConstants.CATEGORY_MIN_LENGTH,
+          max = ValidationConstants.CATEGORY_MAX_LENGTH,
+          message = ValidationConstants.CATEGORY_SIZE)
+    @Sanitized(type = Sanitized.SanitizationType.CATEGORY)
     private String category;
 
-    @NotNull(message = "Difficulty is required")
+    @NotNull(message = ValidationConstants.DIFFICULTY_REQUIRED)
     private DifficultyLevel difficulty;
 
-    @NotNull(message = "Points are required")
-    @Min(value = 1, message = "Points must be at least 1")
-    @Max(value = 100, message = "Points must not exceed 100")
+    @NotNull(message = ValidationConstants.POINTS_REQUIRED)
+    @Min(value = ValidationConstants.POINTS_MIN_VALUE,
+         message = ValidationConstants.POINTS_RANGE)
+    @Max(value = ValidationConstants.POINTS_MAX_VALUE,
+         message = ValidationConstants.POINTS_RANGE)
     private Integer points;
 
-    @NotNull(message = "Answers are required")
-    @Size(min = 1, message = "At least one answer is required")
+    @NotNull(message = ValidationConstants.ANSWERS_REQUIRED)
+    @Size(min = ValidationConstants.MIN_ANSWERS_REQUIRED,
+          message = ValidationConstants.MIN_ANSWERS)
     @Valid
     private List<AnswerDTO> answers;
 }
