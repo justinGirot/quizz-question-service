@@ -2,13 +2,13 @@ package com.quizz.question.security;
 
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import javax.crypto.SecretKey;
-import java.nio.charset.StandardCharsets;
 import java.util.List;
 
 @Component
@@ -18,7 +18,9 @@ public class JwtUtil {
     private final SecretKey secretKey;
 
     public JwtUtil(@Value("${jwt.secret}") String secret) {
-        this.secretKey = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
+        // BASE64 decode the secret to match auth service implementation
+        byte[] keyBytes = Decoders.BASE64.decode(secret);
+        this.secretKey = Keys.hmacShaKeyFor(keyBytes);
     }
 
     public Claims parseToken(String token) {
