@@ -164,24 +164,33 @@ User {
 
 ### 5. Question Service (quizz-question-service)
 - **Repository**: https://github.com/justinGirot/quizz-question-service
-- **Technology**: Spring Boot 3.4, Spring Data JPA, Java 21
+- **Technology**: Spring Boot 3.4, Spring Data JPA, Java 21, PostgreSQL, Liquibase
 - **Port**: 8082
-- **Database**: H2 (file-based: `./data/questions.db`)
+- **Database**: PostgreSQL (questions_db)
 - **Responsibilities**:
   - Question creation, retrieval, update, deletion (CRUD)
   - **Question workflow management** (draft → pending → validated/rejected/archived)
-  - Question categorization
+  - **Category referential system** (admin-managed categories with active/inactive status)
+  - Question categorization with foreign key constraints
   - Question difficulty levels and points
   - User ownership and permissions
-  - Category management
+  - Input sanitization and XSS prevention
+  - OpenAPI/Swagger documentation
 
-**Key Endpoints**:
+**Question Endpoints**:
 - `POST /api/questions` - Create question (starts as draft)
 - `GET /api/questions/{id}` - Get question by ID
-- `GET /api/questions?statuses[]=draft&categories[]=Science` - List questions with filters
-- `GET /api/questions/categories` - Get all unique categories
+- `GET /api/questions?statuses[]=DRAFT&categories[]=Science` - List questions with filters
 - `PUT /api/questions/{id}` - Update question (including status changes)
 - `DELETE /api/questions/{id}` - Delete question (only drafts)
+
+**Category Endpoints**:
+- `GET /api/categories/active` - Get active categories (all authenticated users)
+- `GET /api/categories` - Get all categories including inactive (admin only)
+- `GET /api/categories/{id}` - Get category by ID (admin only)
+- `POST /api/categories` - Create new category (admin only)
+- `PUT /api/categories/{id}` - Update category (admin only)
+- `DELETE /api/categories/{id}` - Delete category if not in use (admin only)
 
 **Question Workflow**:
 1. **Draft** (editable):
@@ -210,12 +219,23 @@ User {
 
 **Data Model**:
 ```java
+Category {
+  Long id;
+  String name; // unique, 3-100 characters
+  String description; // optional, max 500 characters
+  CategoryStatus status; // ACTIVE or INACTIVE
+  LocalDateTime createdAt;
+  LocalDateTime updatedAt;
+  Long createdBy; // User ID (admin who created)
+}
+
 Question {
   Long id;
-  String text; // min 10 characters
-  QuestionType type; // MULTIPLE_CHOICE, TEXT_INPUT (auto-detected: 1 answer = TEXT_INPUT, 2+ = MULTIPLE_CHOICE)
+  String text; // min 10 characters, HTML sanitized
+  QuestionType type; // MULTIPLE_CHOICE, TEXT_INPUT
   QuestionStatus status; // DRAFT, PENDING, VALIDATED, REJECTED, ARCHIVED
-  String category; // min 3 characters
+  String category; // deprecated field for backward compatibility
+  Long categoryId; // foreign key to categories table
   DifficultyLevel difficulty; // EASY, MEDIUM, HARD
   Integer points; // 1-100
   List<Answer> answers; // min 1 answer required
@@ -226,26 +246,42 @@ Question {
 
 Answer {
   Long id;
-  String text; // required, non-empty
+  String text; // required, non-empty, HTML sanitized
   boolean isCorrect; // at least one must be true
-  String imageUrl; // optional, URL to answer image
+  String imageUrl; // optional, URL to answer image, validated
+  Long questionId; // foreign key with CASCADE delete
 }
 ```
 
 **Validation Rules**:
-- Question text: required, min 10 characters
-- Category: required, min 3 characters
-- Points: required, 1-100
-- Answers: at least 1 required, all must have non-empty text
-- At least one answer must be marked as correct
-- Status transitions: draft ↔ pending, pending → validated/rejected/archived
+- **Question text**: required, 10-1000 characters, HTML sanitized, XSS prevention
+- **Category**: must reference existing active category (foreign key constraint)
+- **Points**: required, 1-100
+- **Answers**: at least 1 required, all must have non-empty text, HTML sanitized
+- **At least one answer must be marked as correct**
+- **Image URLs**: optional, validated for malicious URLs (javascript:, data:, vbscript:)
+- **Status transitions**: draft ↔ pending, pending → validated/rejected/archived
+- **Category name**: unique (case-insensitive), 3-100 characters, alphanumeric with spaces/hyphens/underscores
+- **Category description**: optional, max 500 characters
+
+**Input Sanitization & Security**:
+- **OWASP HTML Sanitizer**: All text inputs stripped of HTML tags
+- **Apache Commons Text**: HTML entity encoding
+- **@Sanitized annotation**: Custom validation for dangerous content
+- **URL validation**: Blocks javascript:, data:, vbscript: protocols
+- **Control characters**: Removed from all inputs
+- **SQL injection prevention**: Parameterized queries via JPA
 
 **Authorization**:
-- All endpoints require authentication (JWT cookie)
-- Question creation: any authenticated user
-- Edit/Delete draft: only creator or admin
-- Validate/Reject/Archive: only admin
-- Move to draft: creator or admin
+- All endpoints require authentication (JWT httpOnly cookie)
+- **Question endpoints**:
+  - Create: any authenticated user
+  - Edit/Delete draft: only creator or admin
+  - Validate/Reject/Archive: only admin
+  - Move to draft: creator or admin
+- **Category endpoints**:
+  - GET /api/categories/active: all authenticated users
+  - All other category endpoints: admin only (@PreAuthorize("hasRole('ADMIN')"))
 
 ### 5. Quiz Service (quizz-quiz-service)
 - **Repository**: https://github.com/justinGirot/quizz-quiz-service
@@ -365,15 +401,19 @@ QuizAnswer {
 ## Data Storage
 
 ### Development:
-- H2 file-based databases for each service
-- Data persisted in `./data/` directory
-- Easy local development and testing
+- **Auth Service**: H2 file-based database (`./data/auth.db`)
+- **Question Service**: PostgreSQL with Docker Compose (`questions_db` on port 5432)
+- **Quiz Service**: H2 file-based database (`./data/quizzes.db`)
+- Data persisted locally for easy development and testing
+- Liquibase migrations for database version control (Question Service)
 
 ### Production Considerations:
-- Migrate to PostgreSQL/MySQL for each service
+- Migrate all services to PostgreSQL/MySQL
 - Each service has its own database (database per service pattern)
 - No direct database access between services
 - Data consistency via API calls or eventual consistency patterns
+- Database backups and disaster recovery
+- Connection pooling and performance tuning
 
 ## Configuration
 
@@ -388,23 +428,42 @@ quiz-service:     8083
 ```
 
 ### Environment Variables:
-Each service should support:
+
+**Auth Service / Quiz Service (H2)**:
 ```properties
 # Server
-SERVER_PORT=808X
+SERVER_PORT=8081 or 8083
 SPRING_PROFILES_ACTIVE=dev|prod
 
-# Database
+# Database (H2)
 SPRING_DATASOURCE_URL=jdbc:h2:file:./data/service.db
 SPRING_DATASOURCE_USERNAME=sa
 SPRING_DATASOURCE_PASSWORD=
 
-# JWT (Auth Service)
-JWT_SECRET=your-secret-key
-JWT_EXPIRATION=86400000
+# JWT (Auth Service only)
+JWT_SECRET=your-super-secret-key-change-this-in-production
+JWT_EXPIRATION=604800000
 
-# Service Discovery (future)
-EUREKA_SERVER_URL=http://localhost:8761/eureka
+# Service Discovery
+EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE=http://localhost:8761/eureka/
+```
+
+**Question Service (PostgreSQL)**:
+```properties
+# Server
+SERVER_PORT=8082
+SPRING_PROFILES_ACTIVE=dev|prod
+
+# Database (PostgreSQL)
+SPRING_DATASOURCE_URL=jdbc:postgresql://localhost:5432/questions_db
+SPRING_DATASOURCE_USERNAME=postgres
+SPRING_DATASOURCE_PASSWORD=postgres
+
+# JWT (for validation)
+JWT_SECRET=your-super-secret-key-change-this-in-production
+
+# Service Discovery
+EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE=http://localhost:8761/eureka/
 ```
 
 ## API Documentation

@@ -1,37 +1,53 @@
 # Question Service
 
-Question management microservice for the Quiz application. Handles CRUD operations for questions with a complete workflow: draft → pending → validated/rejected/archived.
+Production-ready Question management microservice for the Quiz application. Features complete CRUD operations, workflow management, category referential system, and enterprise-grade security.
 
-## Features
+## ✨ Features
 
+### Core Functionality
 - ✅ **Full Question CRUD**: Create, read, update, delete questions
 - ✅ **Workflow Management**: Draft → Pending → Validated/Rejected/Archived
+- ✅ **Category Referential**: Admin-managed categories with active/inactive status
 - ✅ **JWT Authentication**: Cookie-based authentication with httpOnly cookies
-- ✅ **PostgreSQL Database**: Production-ready database with Liquibase migrations
-- ✅ **OpenAPI/Swagger**: Complete API documentation
+- ✅ **Role-Based Access**: Creator/admin permissions with `@PreAuthorize`
+- ✅ **Input Sanitization**: OWASP-compliant XSS prevention
+
+### Code Quality & Security
+- ✅ **Clean Code**: Zero magic strings, constants classes throughout
+- ✅ **Clean Architecture**: Clear package structure, SOLID principles
+- ✅ **XSS Prevention**: OWASP HTML Sanitizer + Apache Commons Text
+- ✅ **Input Validation**: Comprehensive validation with custom annotations
+- ✅ **Security First**: SQL injection prevention, dangerous content detection
+
+### Infrastructure
+- ✅ **PostgreSQL Database**: Production-ready with Liquibase migrations
+- ✅ **OpenAPI/Swagger**: Complete interactive API documentation
 - ✅ **Eureka Integration**: Service discovery and registration
-- ✅ **Validation**: Comprehensive request validation with custom validators
-- ✅ **Authorization**: Role-based access control (creator/admin)
+- ✅ **Actuator Metrics**: Prometheus-ready monitoring
+- ✅ **Docker Compose**: One-command PostgreSQL setup
 
-## Tech Stack
+## 🛠️ Tech Stack
 
-- **Java 21**
-- **Spring Boot 3.4.0**
-- **Spring Data JPA** - Database access
-- **Spring Security** - JWT authentication
-- **PostgreSQL** - Database
-- **Liquibase** - Database migrations
+- **Java 21** - Latest LTS version
+- **Spring Boot 3.4.0** - Latest stable release
+- **Spring Data JPA** - Database access with Hibernate
+- **Spring Security** - JWT authentication & authorization
+- **PostgreSQL** - Production database
+- **Liquibase** - Database version control
 - **Lombok** - Boilerplate reduction
-- **SpringDoc OpenAPI** - API documentation
+- **SpringDoc OpenAPI 2.3.0** - API documentation
 - **Spring Cloud Netflix Eureka** - Service discovery
+- **OWASP HTML Sanitizer** - XSS prevention
+- **Apache Commons Text 1.12.0** - Text sanitization
 
-## Prerequisites
+## 📋 Prerequisites
 
-- Java 21+
-- Docker & Docker Compose (for PostgreSQL)
-- Maven 3.8+
+- **Java 21+** (JDK 21 or higher)
+- **Docker & Docker Compose** (for PostgreSQL)
+- **Maven 3.8+** (or use included wrapper)
+- **Git** (for version control)
 
-## Quick Start
+## 🚀 Quick Start
 
 ### 1. Start PostgreSQL
 
@@ -39,15 +55,21 @@ Question management microservice for the Quiz application. Handles CRUD operatio
 docker-compose up -d
 ```
 
-This will start PostgreSQL on port 5432 with:
-- Database: `questions_db`
-- Username: `postgres`
-- Password: `postgres`
+This starts PostgreSQL on port 5432 with:
+- **Database**: `questions_db`
+- **Username**: `postgres`
+- **Password**: `postgres`
+- **Persistence**: Data stored in Docker volume
 
 ### 2. Build the Application
 
 ```bash
 ./mvnw clean install
+```
+
+Or on Windows:
+```bash
+mvnw.cmd clean install
 ```
 
 ### 3. Run the Application
@@ -56,93 +78,183 @@ This will start PostgreSQL on port 5432 with:
 ./mvnw spring-boot:run
 ```
 
+Or with specific profile:
+```bash
+./mvnw spring-boot:run -Dspring-boot.run.profiles=dev
+```
+
 The service will start on **port 8082**.
 
-## API Documentation
-
-Once the application is running, access:
+### 4. Access API Documentation
 
 - **Swagger UI**: http://localhost:8082/swagger-ui.html
 - **OpenAPI JSON**: http://localhost:8082/api-docs
+- **Health Check**: http://localhost:8082/actuator/health
 
-## Endpoints
+## 📡 API Endpoints
 
-All endpoints require authentication via `auth_token` httpOnly cookie.
+### Question Management
 
-### Questions
-
-- `POST /api/questions` - Create question (starts as DRAFT)
-- `GET /api/questions/{id}` - Get question by ID
-- `GET /api/questions?statuses[]=draft&categories[]=Science` - List with filters
-- `GET /api/questions/categories` - Get all unique categories
-- `PUT /api/questions/{id}` - Update question
-- `DELETE /api/questions/{id}` - Delete question (DRAFT only)
-
-### Health
-
-- `GET /actuator/health` - Health check
-- `GET /actuator/info` - Application info
-
-## Question Workflow
+All question endpoints require authentication via `auth_token` httpOnly cookie.
 
 ```
-DRAFT → (validate) → PENDING → (admin approve) → VALIDATED
-                      ↓
-                  (admin reject) → REJECTED
-                      ↓
-                  (admin archive) → ARCHIVED
+POST   /api/questions              - Create question (starts as DRAFT)
+GET    /api/questions/{id}         - Get question by ID
+GET    /api/questions              - List with filters (status, category)
+PUT    /api/questions/{id}         - Update question (validation rules apply)
+DELETE /api/questions/{id}         - Delete question (DRAFT only)
 ```
 
-### Status Transitions
+**Query Parameters for GET /api/questions**:
+- `statuses[]` - Filter by status (DRAFT, PENDING, VALIDATED, REJECTED, ARCHIVED)
+- `categories[]` - Filter by category names
 
-- **DRAFT**:
-  - Created by any user
-  - Can be edited, deleted, or moved to PENDING
-  - Only creator or admin can modify
-
-- **PENDING**:
-  - Awaiting admin validation
-  - Read-only (can be moved back to DRAFT by creator)
-  - Admin can validate/reject/archive
-
-- **VALIDATED/REJECTED/ARCHIVED**:
-  - Final states
-  - View-only
-  - Only admin can modify
-
-## Configuration
-
-### Environment Variables
-
-```properties
-# Database
-SPRING_DATASOURCE_URL=jdbc:postgresql://localhost:5432/questions_db
-SPRING_DATASOURCE_USERNAME=postgres
-SPRING_DATASOURCE_PASSWORD=postgres
-
-# JWT
-JWT_SECRET=your-secret-key
-
-# Eureka
-EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE=http://localhost:8761/eureka/
+**Example**:
+```bash
+curl http://localhost:8082/api/questions?statuses[]=DRAFT&statuses[]=PENDING \
+  -H "Cookie: auth_token=<jwt>" \
+  -H "Content-Type: application/json"
 ```
 
-### Database Migration
+### Category Management
 
-Liquibase automatically runs migrations on startup. Changelog files are in:
+Categories are managed by administrators only.
+
+**Public Endpoint** (All authenticated users):
 ```
-src/main/resources/db/changelog/
-├── db.changelog-master.yaml
+GET    /api/categories/active      - Get active categories for dropdown
+```
+
+**Admin-Only Endpoints** (Require `ROLE_ADMIN`):
+```
+GET    /api/categories             - Get all categories (active + inactive)
+GET    /api/categories/{id}        - Get category by ID
+POST   /api/categories             - Create new category
+PUT    /api/categories/{id}        - Update category (name, description, status)
+DELETE /api/categories/{id}        - Delete category (if not in use)
+```
+
+**Example - Create Category** (Admin only):
+```bash
+curl -X POST http://localhost:8082/api/categories \
+  -H "Cookie: auth_token=<admin-jwt>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Mathematics",
+    "description": "Math and arithmetic questions"
+  }'
+```
+
+### Health & Metrics
+
+```
+GET    /actuator/health            - Health check
+GET    /actuator/info              - Application info
+GET    /actuator/metrics           - Prometheus metrics
+```
+
+## 📊 Question Workflow
+
+```
+┌─────────┐
+│  DRAFT  │ ← Created by user, fully editable
+└────┬────┘
+     │ validate
+     ▼
+┌─────────┐
+│ PENDING │ ← Awaiting admin review, read-only
+└────┬────┘
+     │
+     ├─→ (admin approve) → VALIDATED
+     ├─→ (admin reject)  → REJECTED
+     └─→ (admin archive) → ARCHIVED
+```
+
+### Status Transition Rules
+
+| Current Status | Allowed Next Status | Who Can Change |
+|----------------|---------------------|----------------|
+| DRAFT | PENDING | Creator or Admin |
+| PENDING | DRAFT | Creator or Admin |
+| PENDING | VALIDATED, REJECTED, ARCHIVED | Admin only |
+| VALIDATED | ARCHIVED | Admin only |
+| REJECTED | ARCHIVED | Admin only |
+| ARCHIVED | - | - |
+
+### Editing Rules
+
+- **DRAFT**: Fully editable (text, answers, category, etc.)
+- **PENDING**: Only status can be changed
+- **Other statuses**: View-only (except status changes by admin)
+
+## 🗂️ Database Schema
+
+### Categories Table
+```sql
+CREATE TABLE categories (
+  id BIGSERIAL PRIMARY KEY,
+  name VARCHAR(100) UNIQUE NOT NULL,
+  description VARCHAR(500),
+  status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE',
+  created_at TIMESTAMP NOT NULL,
+  updated_at TIMESTAMP NOT NULL,
+  created_by BIGINT NOT NULL
+);
+```
+
+**Pre-populated Categories**:
+- Science
+- History
+- Geography
+- Sports
+- Arts
+
+### Questions Table
+```sql
+CREATE TABLE questions (
+  id BIGSERIAL PRIMARY KEY,
+  text VARCHAR(1000) NOT NULL,
+  type VARCHAR(50) NOT NULL,
+  status VARCHAR(50) NOT NULL DEFAULT 'DRAFT',
+  category VARCHAR(100) NOT NULL,  -- Deprecated, for backward compatibility
+  category_id BIGINT REFERENCES categories(id),
+  difficulty VARCHAR(20) NOT NULL,
+  points INTEGER NOT NULL,
+  created_at TIMESTAMP NOT NULL,
+  updated_at TIMESTAMP NOT NULL,
+  created_by BIGINT NOT NULL
+);
+```
+
+### Answers Table
+```sql
+CREATE TABLE answers (
+  id BIGSERIAL PRIMARY KEY,
+  text VARCHAR(500) NOT NULL,
+  is_correct BOOLEAN NOT NULL,
+  image_url VARCHAR(500),
+  question_id BIGINT NOT NULL REFERENCES questions(id) ON DELETE CASCADE
+);
+```
+
+### Liquibase Migrations
+
+Migrations are located in `src/main/resources/db/changelog/`:
+
+```
+db/changelog/
+├── db.changelog-master.yaml          # Master changelog
 └── changes/
     ├── 001-create-questions-table.yaml
-    └── 002-create-answers-table.yaml
+    ├── 002-create-answers-table.yaml
+    ├── 003-create-categories-table.yaml
+    └── 004-update-questions-category-fk.yaml
 ```
 
-## Data Model
+## 📝 Data Models
 
-### Question
-
-```java
+### Question Response
+```json
 {
   "id": 1,
   "text": "What is the capital of France?",
@@ -151,111 +263,309 @@ src/main/resources/db/changelog/
   "category": "Geography",
   "difficulty": "EASY",
   "points": 10,
-  "answers": [...],
+  "answers": [
+    {
+      "id": 1,
+      "text": "Paris",
+      "isCorrect": true,
+      "imageUrl": null
+    },
+    {
+      "id": 2,
+      "text": "London",
+      "isCorrect": false,
+      "imageUrl": null
+    }
+  ],
   "createdAt": "2024-01-15T10:30:00",
   "updatedAt": "2024-01-15T10:30:00",
   "createdBy": 123
 }
 ```
 
-### Answer
-
-```java
+### Category Response
+```json
 {
   "id": 1,
-  "text": "Paris",
-  "isCorrect": true,
-  "imageUrl": "https://example.com/image.jpg"
+  "name": "Science",
+  "description": "Science and technology questions",
+  "status": "ACTIVE",
+  "createdAt": "2024-01-15T10:00:00",
+  "updatedAt": "2024-01-15T10:00:00",
+  "createdBy": 1
 }
 ```
 
-## Validation Rules
+## ✅ Validation Rules
 
-- **Question text**: Required, 10-1000 characters
-- **Category**: Required, 3-100 characters
+### Question Validation
+- **Text**: Required, 10-1000 characters, HTML sanitized
+- **Category**: Must reference existing active category
 - **Points**: Required, 1-100
+- **Type**: MULTIPLE_CHOICE or TEXT_INPUT
+- **Difficulty**: EASY, MEDIUM, or HARD
 - **Answers**: At least 1 required, all must have non-empty text
 - **At least one correct answer**: Required
 
-## Development
+### Category Validation
+- **Name**: Required, 3-100 characters, unique (case-insensitive)
+- **Description**: Optional, max 500 characters
+- **Name format**: Alphanumeric with spaces, hyphens, underscores
+
+### Input Sanitization
+
+All text inputs are automatically sanitized to prevent XSS attacks:
+
+- **HTML Tags**: Removed using OWASP HTML Sanitizer
+- **Special Characters**: HTML entity encoded
+- **Malicious URLs**: Blocked (javascript:, data:, vbscript:)
+- **Control Characters**: Removed
+- **Whitespace**: Normalized
+
+## ⚙️ Configuration
+
+### Environment Variables
+
+Create a `.env` file or set environment variables:
+
+```bash
+# Database Configuration
+SPRING_DATASOURCE_URL=jdbc:postgresql://localhost:5432/questions_db
+SPRING_DATASOURCE_USERNAME=postgres
+SPRING_DATASOURCE_PASSWORD=postgres
+
+# JWT Configuration (must match Auth Service)
+JWT_SECRET=your-super-secret-key-change-this-in-production
+
+# Eureka Configuration
+EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE=http://localhost:8761/eureka/
+
+# Server Configuration
+SERVER_PORT=8082
+
+# Profile (dev or prod)
+SPRING_PROFILES_ACTIVE=dev
+```
+
+### Application Profiles
+
+**Development Profile** (`dev`):
+- SQL logging enabled
+- Detailed error messages
+- DEBUG logging for application
+
+**Production Profile** (`prod`):
+- SQL logging disabled
+- Minimal error exposure
+- WARN/ERROR logging only
+
+Activate profile:
+```bash
+./mvnw spring-boot:run -Dspring-boot.run.profiles=prod
+```
+
+## 🏗️ Architecture
+
+### Package Structure
+
+```
+com.quizz.question/
+├── common/
+│   ├── constants/       # All constants (API, Validation, Security, Error, Database)
+│   └── util/            # Utilities (Sanitization, Validation)
+├── config/              # Configuration (Security, OpenAPI, Web)
+├── controller/          # REST Controllers (Question, Category)
+├── dto/                 # Data Transfer Objects with validation
+├── exception/           # Custom exceptions & global handler
+├── mapper/              # Entity ↔ DTO transformation
+├── model/               # JPA Entities (Question, Answer, Category)
+├── repository/          # Spring Data JPA repositories
+├── security/            # JWT authentication filter & utilities
+├── service/             # Business logic services
+└── validation/          # Custom validators (@Sanitized, etc.)
+```
+
+### Clean Code Principles
+
+- ✅ **No Magic Strings**: All strings in constants classes
+- ✅ **No Magic Numbers**: All numbers in constants classes
+- ✅ **Single Responsibility**: Each class has one clear purpose
+- ✅ **DRY**: No code duplication
+- ✅ **Meaningful Names**: Clear, descriptive variable/method names
+- ✅ **Proper Javadoc**: All public classes and methods documented
+
+### SOLID Principles Applied
+
+- **S**ingle Responsibility: Each service, controller, repository has one job
+- **O**pen/Closed: Extensible via interfaces, closed for modification
+- **L**iskov Substitution: Implementations interchangeable via interfaces
+- **I**nterface Segregation: Small, focused interfaces (QuestionService, CategoryService)
+- **D**ependency Inversion: Depend on abstractions (Service interfaces)
+
+## 🔒 Security
+
+### Authentication & Authorization
+
+- **JWT Cookies**: httpOnly, secure, SameSite protection
+- **Role-Based Access**: `@PreAuthorize` annotations
+- **Admin Endpoints**: Category management restricted to ROLE_ADMIN
+- **Creator Permissions**: Users can only edit their own DRAFT questions
+
+### Input Security
+
+- **XSS Prevention**: OWASP HTML Sanitizer
+- **SQL Injection**: Parameterized queries (JPA)
+- **Path Traversal**: Input validation
+- **CORS**: Disabled (handled by API Gateway)
+
+### Security Headers
+
+Configured in API Gateway (not in this service):
+- X-Frame-Options
+- X-Content-Type-Options
+- X-XSS-Protection
+- Content-Security-Policy
+
+## 🧪 Development
 
 ### Running Tests
 
 ```bash
+# Run all tests
 ./mvnw test
+
+# Run with coverage
+./mvnw test jacoco:report
+
+# Run specific test
+./mvnw test -Dtest=QuestionServiceTest
 ```
 
 ### Building for Production
 
 ```bash
+# Build JAR
 ./mvnw clean package -DskipTests
+
+# Run JAR
 java -jar target/question-service-0.0.1-SNAPSHOT.jar
+
+# With profile
+java -jar -Dspring.profiles.active=prod target/question-service-0.0.1-SNAPSHOT.jar
 ```
 
-### Database Access
+### Database Management
 
 ```bash
 # Connect to PostgreSQL
 docker exec -it questions-postgres psql -U postgres -d questions_db
 
-# View tables
-\dt
-
-# Query questions
+# Common commands
+\dt                    # List tables
+\d questions          # Describe questions table
+SELECT * FROM categories;
 SELECT * FROM questions;
 SELECT * FROM answers;
+
+# Check Liquibase status
+./mvnw liquibase:status
+
+# Rollback last migration
+./mvnw liquibase:rollback -Dliquibase.rollbackCount=1
 ```
 
-## Integration with Other Services
+## 🔗 Integration with Other Services
+
+### Microservices Architecture
 
 This service integrates with:
 
-1. **Auth Service** (port 8081): JWT token validation
-2. **API Gateway** (port 8080): Routes `/api/questions/**` to this service
-3. **Eureka Server** (port 8761): Service registration and discovery
-4. **Quiz Service** (port 8083): References question IDs for quizzes
+1. **Auth Service** (port 8081)
+   - Validates JWT tokens
+   - Provides user authentication
 
-## Architecture Notes
+2. **API Gateway** (port 8080)
+   - Routes `/api/questions/**` and `/api/categories/**`
+   - Handles CORS configuration
+   - Single entry point for clients
 
-### Database per Service Pattern
+3. **Eureka Server** (port 8761)
+   - Service registration and discovery
+   - Health monitoring
+   - Dynamic service location
 
-- This service owns its database (`questions_db`)
-- Other services reference questions by ID only
-- No direct database access from other services
-- Data consistency via API calls
+4. **Quiz Service** (port 8083)
+   - References questions by ID
+   - Uses category information for quiz creation
 
-### Future Enhancements
+### Service Communication
 
-- Statistics Service can consume question data for analytics
-- Event-driven updates (publish question events)
-- Caching layer (Redis) for frequently accessed questions
-- Full-text search (Elasticsearch) for question search
+- **Synchronous**: REST APIs via HTTP/JSON
+- **Service Discovery**: Via Eureka (no hardcoded URLs)
+- **Data Isolation**: Each service owns its database
+- **API Gateway**: All client requests go through gateway
 
-## Troubleshooting
+## 🐛 Troubleshooting
 
-### Database Connection Issues
+### Common Issues
 
+**PostgreSQL Connection Failed**
 ```bash
-# Check if PostgreSQL is running
+# Check if container is running
 docker ps
 
 # View logs
 docker logs questions-postgres
 
-# Restart PostgreSQL
+# Restart container
 docker-compose restart
+
+# Recreate container
+docker-compose down && docker-compose up -d
 ```
 
-### Liquibase Migration Issues
-
+**Liquibase Migration Failed**
 ```bash
 # Check migration status
 ./mvnw liquibase:status
 
-# Rollback last changeset
-./mvnw liquibase:rollback -Dliquibase.rollbackCount=1
+# View error in logs
+tail -f logs/question-service.log
+
+# Clear checksums (if needed)
+./mvnw liquibase:clearCheckSums
 ```
 
-## License
+**Port Already in Use**
+```bash
+# Find process using port 8082
+netstat -ano | findstr :8082  # Windows
+lsof -i :8082                 # Linux/Mac
+
+# Change port in application.yaml
+server.port: 8083
+```
+
+**JWT Authentication Failed**
+- Ensure JWT_SECRET matches Auth Service
+- Check cookie is httpOnly and SameSite=Lax
+- Verify token hasn't expired
+- Check CORS is configured in API Gateway
+
+## 📚 Additional Resources
+
+- **Swagger UI**: http://localhost:8082/swagger-ui.html
+- **Architecture Docs**: See `ARCHITECTURE.md`
+- **API Integration**: See frontend `API_INTEGRATION.md`
+- **Liquibase Docs**: https://docs.liquibase.com
+- **Spring Boot Docs**: https://docs.spring.io/spring-boot/docs/3.4.0/reference/html/
+
+## 📄 License
 
 This project is part of the Quiz Application microservices system.
+
+---
+
+**Repository**: https://github.com/justinGirot/quizz-question-service
+**Version**: 0.0.1-SNAPSHOT
+**Build**: Spring Boot 3.4.0 with Java 21
