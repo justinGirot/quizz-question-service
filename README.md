@@ -74,16 +74,31 @@ mvnw.cmd clean install
 
 ### 3. Run the Application
 
+**With Eureka (default)**:
 ```bash
 ./mvnw spring-boot:run
 ```
 
-Or with specific profile:
+**Without Eureka (standalone mode)**:
+```bash
+# Option 1: Using standalone profile
+./mvnw spring-boot:run -Dspring-boot.run.profiles=standalone
+
+# Option 2: Using environment variable
+EUREKA_CLIENT_ENABLED=false ./mvnw spring-boot:run
+
+# Option 3: Combine profiles (dev + standalone)
+./mvnw spring-boot:run -Dspring-boot.run.profiles=dev,standalone
+```
+
+**With specific profile**:
 ```bash
 ./mvnw spring-boot:run -Dspring-boot.run.profiles=dev
 ```
 
 The service will start on **port 8082**.
+
+> **Note**: Eureka server is **optional**. The service can run standalone without service discovery by disabling Eureka (see options above).
 
 ### 4. Access API Documentation
 
@@ -337,13 +352,14 @@ SPRING_DATASOURCE_PASSWORD=postgres
 # JWT Configuration (must match Auth Service)
 JWT_SECRET=your-super-secret-key-change-this-in-production
 
-# Eureka Configuration
+# Eureka Configuration (Optional)
+EUREKA_CLIENT_ENABLED=true  # Set to false to disable Eureka
 EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE=http://localhost:8761/eureka/
 
 # Server Configuration
 SERVER_PORT=8082
 
-# Profile (dev or prod)
+# Profile (dev, prod, or standalone)
 SPRING_PROFILES_ACTIVE=dev
 ```
 
@@ -353,11 +369,19 @@ SPRING_PROFILES_ACTIVE=dev
 - SQL logging enabled
 - Detailed error messages
 - DEBUG logging for application
+- Eureka enabled by default
 
 **Production Profile** (`prod`):
 - SQL logging disabled
 - Minimal error exposure
 - WARN/ERROR logging only
+- Eureka enabled by default
+
+**Standalone Profile** (`standalone`):
+- Eureka disabled
+- Runs without service discovery
+- Useful for local development or single-instance deployments
+- Can be combined with other profiles: `dev,standalone` or `prod,standalone`
 
 Activate profile:
 ```bash
@@ -489,10 +513,11 @@ This service integrates with:
    - Handles CORS configuration
    - Single entry point for clients
 
-3. **Eureka Server** (port 8761)
+3. **Eureka Server** (port 8761) - **Optional**
    - Service registration and discovery
    - Health monitoring
    - Dynamic service location
+   - Can be disabled for standalone deployments
 
 4. **Quiz Service** (port 8083)
    - References questions by ID

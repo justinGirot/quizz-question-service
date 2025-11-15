@@ -13,7 +13,7 @@ spring:
   # Database Configuration
   # ===================================================================
   datasource:
-    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/questions_db}
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/quiz_question}
     username: ${SPRING_DATASOURCE_USERNAME:postgres}
     password: ${SPRING_DATASOURCE_PASSWORD:postgres}
     driver-class-name: org.postgresql.Driver
@@ -66,14 +66,17 @@ server:
     include-exception: false
 
 # ===================================================================
-# Eureka Client Configuration
+# Eureka Client Configuration (Optional)
 # ===================================================================
+# Set EUREKA_CLIENT_ENABLED=false to disable Eureka registration
+# This allows the service to run standalone without Eureka server
 eureka:
   client:
+    enabled: ${EUREKA_CLIENT_ENABLED:false}
     service-url:
       defaultZone: ${EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE:http://localhost:8761/eureka/}
-    register-with-eureka: true
-    fetch-registry: true
+    register-with-eureka: ${EUREKA_CLIENT_ENABLED:true}
+    fetch-registry: ${EUREKA_CLIENT_ENABLED:true}
     registry-fetch-interval-seconds: 30
   instance:
     prefer-ip-address: true
@@ -123,7 +126,7 @@ management:
 # JWT Configuration
 # ===================================================================
 jwt:
-  secret: ${JWT_SECRET:your-super-secret-key-change-this-in-production-please-make-it-very-long}
+  secret: ${JWT_SECRET:404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970}
   expiration: 604800000 # 7 days in milliseconds
 
 # ===================================================================
@@ -209,3 +212,22 @@ logging:
     com.quizz.question: INFO
     org.springframework.web: WARN
     org.hibernate.SQL: WARN
+
+---
+# ===================================================================
+# Profile: standalone (without Eureka)
+# ===================================================================
+spring:
+  config:
+    activate:
+      on-profile: standalone
+
+eureka:
+  client:
+    enabled: false
+    register-with-eureka: false
+    fetch-registry: false
+
+logging:
+  level:
+    com.quizz.question: INFO

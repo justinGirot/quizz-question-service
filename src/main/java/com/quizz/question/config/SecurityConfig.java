@@ -38,6 +38,20 @@ public class SecurityConfig {
                 // All other endpoints require authentication
                 .anyRequest().authenticated()
             )
+            .exceptionHandling(exceptions -> exceptions
+                .authenticationEntryPoint((request, response, authException) -> {
+                    response.setContentType("application/json");
+                    response.setStatus(401);
+                    response.getWriter().write("{\"message\":\"Unauthorized - Authentication required\",\"timestamp\":\""
+                        + java.time.LocalDateTime.now() + "\",\"path\":\"" + request.getRequestURI() + "\"}");
+                })
+                .accessDeniedHandler((request, response, accessDeniedException) -> {
+                    response.setContentType("application/json");
+                    response.setStatus(403);
+                    response.getWriter().write("{\"message\":\"Forbidden - Access denied\",\"timestamp\":\""
+                        + java.time.LocalDateTime.now() + "\",\"path\":\"" + request.getRequestURI() + "\"}");
+                })
+            )
             .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
