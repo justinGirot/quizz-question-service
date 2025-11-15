@@ -39,7 +39,11 @@ public class Question {
     private QuestionStatus status = QuestionStatus.DRAFT;
 
     @Column(nullable = false, length = 100)
-    private String category;
+    private String category; // Deprecated - kept for backward compatibility
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "category_id")
+    private Category categoryRef;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)

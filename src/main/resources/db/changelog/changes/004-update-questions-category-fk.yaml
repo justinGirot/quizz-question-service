@@ -1,0 +1,32 @@
+databaseChangeLog:
+  - changeSet:
+      id: 004-update-questions-category-fk
+      author: question-service
+      changes:
+        # Add new category_id column
+        - addColumn:
+            tableName: questions
+            columns:
+              - column:
+                  name: category_id
+                  type: BIGINT
+
+        # Create foreign key to categories table
+        - addForeignKeyConstraint:
+            baseTableName: questions
+            baseColumnNames: category_id
+            constraintName: fk_question_category
+            referencedTableName: categories
+            referencedColumnNames: id
+            onDelete: RESTRICT
+
+        # Create index on category_id
+        - createIndex:
+            indexName: idx_question_category_id
+            tableName: questions
+            columns:
+              - column:
+                  name: category_id
+
+        # Note: Keep the old 'category' column for now for backward compatibility
+        # It will be removed in a future migration after data migration

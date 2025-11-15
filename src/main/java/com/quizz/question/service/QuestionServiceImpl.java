@@ -68,12 +68,7 @@ public class QuestionServiceImpl implements QuestionService {
         return questionMapper.toDTOList(questions);
     }
 
-    @Override
-    @Transactional(readOnly = true)
-    public List<String> getAllCategories() {
-        log.info("Fetching all categories");
-        return questionRepository.findAllCategories();
-    }
+    // NOTE: getAllCategories() removed - use CategoryService.getActiveCategories() instead
 
     @Override
     @Transactional

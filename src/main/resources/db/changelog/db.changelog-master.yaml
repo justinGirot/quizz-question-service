@@ -3,3 +3,7 @@ databaseChangeLog:
       file: db/changelog/changes/001-create-questions-table.yaml
   - include:
       file: db/changelog/changes/002-create-answers-table.yaml
+  - include:
+      file: db/changelog/changes/003-create-categories-table.yaml
+  - include:
+      file: db/changelog/changes/004-update-questions-category-fk.yaml

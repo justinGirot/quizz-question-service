@@ -105,19 +105,9 @@ public class QuestionController {
         return ResponseEntity.ok(questions);
     }
 
-    @GetMapping(ApiConstants.CATEGORIES_PATH)
-    @Operation(summary = "Get all categories", description = "Retrieves all unique question categories")
-    @ApiResponses({
-        @ApiResponse(responseCode = "200", description = "Categories retrieved successfully",
-                content = @Content(array = @ArraySchema(schema = @Schema(implementation = String.class)))),
-        @ApiResponse(responseCode = "401", description = "Unauthorized")
-    })
-    public ResponseEntity<List<String>> getCategories() {
-        log.info("Fetching all categories");
-        List<String> categories = questionService.getAllCategories();
-
-        return ResponseEntity.ok(categories);
-    }
+    // NOTE: Category endpoints moved to CategoryController
+    // GET /api/categories/active - for all users
+    // GET /api/categories - for admins only
 
     @PutMapping(ApiConstants.ID_PATH_PARAM)
     @Operation(summary = "Update a question", description = "Updates an existing question with sanitized input. Only DRAFT questions can be fully edited.")

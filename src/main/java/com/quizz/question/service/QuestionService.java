@@ -24,10 +24,7 @@ public interface QuestionService {
      */
     List<QuestionDTO> getQuestions(List<QuestionStatus> statuses, List<String> categories);
 
-    /**
-     * Get all unique categories
-     */
-    List<String> getAllCategories();
+    // NOTE: Category management moved to CategoryService
 
     /**
      * Update a question
