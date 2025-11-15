@@ -53,7 +53,11 @@ public class JwtUtil {
         Object rolesObj = claims.get("roles");
         if (rolesObj instanceof List) {
             return (List<String>) rolesObj;
+        } else if (rolesObj instanceof String) {
+            // Handle case where roles is a single string (e.g., "ROLE_USER")
+            return List.of((String) rolesObj);
         }
+        log.debug("No roles found in JWT claims or unsupported format");
         return List.of();
     }
 

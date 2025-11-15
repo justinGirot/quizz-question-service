@@ -22,7 +22,7 @@ public final class ApiConstants {
     public static final String CATEGORIES_PARAM = "categories[]";
 
     // Cookie names
-    public static final String AUTH_TOKEN_COOKIE = "auth_token";
+    public static final String AUTH_TOKEN_COOKIE = "token";
 
     // Headers
     public static final String AUTHORIZATION_HEADER = "Authorization";
