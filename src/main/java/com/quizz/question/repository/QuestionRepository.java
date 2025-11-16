@@ -4,6 +4,7 @@ import com.quizz.question.model.Question;
 import com.quizz.question.model.QuestionStatus;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -32,9 +33,9 @@ public interface QuestionRepository extends JpaRepository<Question, Long> {
 
     /**
      * Find questions with pagination and optional filtering
-     * Note: Cannot use JOIN FETCH with pagination, so this may cause N+1 queries
-     * Consider using @EntityGraph as an alternative
+     * Uses @EntityGraph to eagerly fetch associations and avoid N+1 queries
      */
+    @EntityGraph(attributePaths = {"answers", "category", "difficultyLevel"})
     @Query("SELECT DISTINCT q FROM Question q " +
            "WHERE (:statuses IS NULL OR q.status IN :statuses) " +
            "AND (:categoryIds IS NULL OR q.category.id IN :categoryIds)")

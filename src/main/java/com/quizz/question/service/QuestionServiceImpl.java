@@ -175,9 +175,9 @@ public class QuestionServiceImpl implements QuestionService {
 
     private boolean isStatusOnlyChange(Question existing, UpdateQuestionRequest request) {
         // Check if only status changed (all other fields remain the same)
-        boolean textUnchanged = existing.getText().equals(request.getText());
+        boolean textUnchanged = java.util.Objects.equals(existing.getText(), request.getText());
         boolean typeUnchanged = existing.getType() == request.getType();
-        boolean pointsUnchanged = existing.getPoints().equals(request.getPoints());
+        boolean pointsUnchanged = java.util.Objects.equals(existing.getPoints(), request.getPoints());
 
         // Check category unchanged (either no category provided in request, or same ID)
         boolean categoryUnchanged = (request.getCategoryId() == null && request.getCategoryName() == null) ||
