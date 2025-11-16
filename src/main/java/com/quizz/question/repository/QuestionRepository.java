@@ -2,6 +2,7 @@ package com.quizz.question.repository;
 
 import com.quizz.question.model.Question;
 import com.quizz.question.model.QuestionStatus;
+import com.quizz.question.model.QuestionVisibility;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.EntityGraph;
@@ -66,4 +67,47 @@ public interface QuestionRepository extends JpaRepository<Question, Long> {
      * Check if any questions reference a specific category
      */
     boolean existsByCategory_Id(Long categoryId);
+
+    /**
+     * Find all questions by group ID and status
+     */
+    List<Question> findByGroupIdAndStatus(Long groupId, QuestionStatus status);
+
+    /**
+     * Find all public questions (groupId is null) with given status
+     */
+    List<Question> findByGroupIdIsNullAndStatus(QuestionStatus status);
+
+    /**
+     * Find questions by group ID, visibility, and status
+     */
+    List<Question> findByGroupIdAndVisibilityAndStatus(
+        Long groupId,
+        QuestionVisibility visibility,
+        QuestionStatus status
+    );
+
+    /**
+     * Find questions accessible by user (public questions + user's group questions)
+     */
+    @Query("SELECT DISTINCT q FROM Question q " +
+           "WHERE q.status = :status " +
+           "AND (q.groupId IS NULL " +
+           "OR q.groupId IN :groupIds " +
+           "OR q.visibility = 'PUBLIC') " +
+           "ORDER BY q.createdAt DESC")
+    List<Question> findAccessibleQuestions(
+        @Param("status") QuestionStatus status,
+        @Param("groupIds") List<Long> groupIds
+    );
+
+    /**
+     * Count questions by group
+     */
+    Long countByGroupId(Long groupId);
+
+    /**
+     * Check if question belongs to group
+     */
+    boolean existsByIdAndGroupId(Long questionId, Long groupId);
 }

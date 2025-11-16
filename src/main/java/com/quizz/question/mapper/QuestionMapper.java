@@ -37,6 +37,9 @@ public class QuestionMapper {
                 .difficulty(null) // Removed legacy field
                 .difficultyLevel(difficultyLevelDTO)
                 .points(question.getPoints())
+                .groupId(question.getGroupId())
+                .groupName(null) // Will be set by service layer if needed
+                .visibility(question.getVisibility())
                 .answers(toAnswerDTOList(question.getAnswers()))
                 .createdAt(question.getCreatedAt())
                 .updatedAt(question.getUpdatedAt())
@@ -78,6 +81,8 @@ public class QuestionMapper {
                 .type(request.getType())
                 .status(QuestionStatus.DRAFT)
                 .points(request.getPoints())
+                .groupId(request.getGroupId())
+                .visibility(request.getVisibility() != null ? request.getVisibility() : com.quizz.question.model.QuestionVisibility.PUBLIC)
                 .createdBy(userId)
                 .build();
 
@@ -102,6 +107,12 @@ public class QuestionMapper {
         question.setType(request.getType());
         question.setStatus(request.getStatus());
         question.setPoints(request.getPoints());
+
+        // Update group fields (only if question is in DRAFT status, checked by service)
+        if (question.getStatus() == QuestionStatus.DRAFT) {
+            question.setGroupId(request.getGroupId());
+            question.setVisibility(request.getVisibility());
+        }
 
         // Category and difficulty level are set by service layer via FK references
         // Update answers - clear existing and add new ones

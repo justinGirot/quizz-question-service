@@ -1,0 +1,72 @@
+databaseChangeLog:
+  - changeSet:
+      id: 002-add-group-support-to-questions
+      author: question-service
+      changes:
+        # Add groupId column (nullable - null means public question)
+        - addColumn:
+            tableName: questions
+            columns:
+              - column:
+                  name: group_id
+                  type: BIGINT
+                  constraints:
+                    nullable: true
+                  remarks: "Reference to group (null = public question)"
+
+        # Add visibility column
+        - addColumn:
+            tableName: questions
+            columns:
+              - column:
+                  name: visibility
+                  type: VARCHAR(20)
+                  defaultValue: 'PUBLIC'
+                  constraints:
+                    nullable: false
+                  remarks: "Question visibility: PUBLIC or PRIVATE"
+
+        # Add check constraint for visibility
+        - sql:
+            sql: >
+              ALTER TABLE questions
+              ADD CONSTRAINT chk_question_visibility
+              CHECK (visibility IN ('PUBLIC', 'PRIVATE'));
+
+        # Add index for group queries
+        - createIndex:
+            indexName: idx_questions_group_visibility
+            tableName: questions
+            columns:
+              - column:
+                  name: group_id
+              - column:
+                  name: visibility
+              - column:
+                  name: status
+
+        # Add index for group-based filtering
+        - createIndex:
+            indexName: idx_questions_group_status
+            tableName: questions
+            columns:
+              - column:
+                  name: group_id
+              - column:
+                  name: status
+
+      rollback:
+        - dropIndex:
+            indexName: idx_questions_group_status
+            tableName: questions
+        - dropIndex:
+            indexName: idx_questions_group_visibility
+            tableName: questions
+        - sql:
+            sql: ALTER TABLE questions DROP CONSTRAINT IF EXISTS chk_question_visibility;
+        - dropColumn:
+            tableName: questions
+            columnName: visibility
+        - dropColumn:
+            tableName: questions
+            columnName: group_id

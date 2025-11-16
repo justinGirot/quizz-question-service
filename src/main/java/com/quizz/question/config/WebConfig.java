@@ -2,6 +2,7 @@ package com.quizz.question.config;
 
 import com.quizz.question.config.converter.StringToQuestionStatusConverter;
 import com.quizz.question.config.converter.StringToQuestionTypeConverter;
+import com.quizz.question.config.converter.StringToQuestionVisibilityConverter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.format.FormatterRegistry;
@@ -18,6 +19,7 @@ public class WebConfig implements WebMvcConfigurer {
     private final RequestSanitizationInterceptor requestSanitizationInterceptor;
     private final StringToQuestionStatusConverter questionStatusConverter;
     private final StringToQuestionTypeConverter questionTypeConverter;
+    private final StringToQuestionVisibilityConverter questionVisibilityConverter;
 
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
@@ -29,5 +31,6 @@ public class WebConfig implements WebMvcConfigurer {
     public void addFormatters(FormatterRegistry registry) {
         registry.addConverter(questionStatusConverter);
         registry.addConverter(questionTypeConverter);
+        registry.addConverter(questionVisibilityConverter);
     }
 }

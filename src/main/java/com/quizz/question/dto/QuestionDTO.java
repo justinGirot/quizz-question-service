@@ -3,6 +3,7 @@ package com.quizz.question.dto;
 import com.quizz.question.model.DifficultyLevel;
 import com.quizz.question.model.QuestionStatus;
 import com.quizz.question.model.QuestionType;
+import com.quizz.question.model.QuestionVisibility;
 import lombok.*;
 
 import java.time.LocalDateTime;
@@ -33,6 +34,12 @@ public class QuestionDTO {
     private DifficultyLevelDTO difficultyLevel;
 
     private Integer points;
+
+    // Group support
+    private Long groupId;
+    private String groupName;  // Denormalized for display
+    private QuestionVisibility visibility;
+
     private List<AnswerDTO> answers;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;

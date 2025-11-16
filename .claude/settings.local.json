@@ -3,7 +3,18 @@
     "allow": [
       "Bash(git add:*)",
       "Bash(git commit:*)",
-      "Bash(./mvnw clean compile:*)"
+      "Bash(./mvnw clean compile:*)",
+      "Bash(./mvnw clean:*)",
+      "Bash(./mvnw test:*)",
+      "Bash(cat:*)",
+      "Bash(git push:*)",
+      "Bash(gh pr create:*)",
+      "Bash(gh pr view:*)",
+      "Bash(git init:*)",
+      "Bash(gh repo create:*)",
+      "Bash(git branch:*)",
+      "Bash(git remote add:*)",
+      "Bash(git remote set-url:*)"
     ],
     "deny": [],
     "ask": []

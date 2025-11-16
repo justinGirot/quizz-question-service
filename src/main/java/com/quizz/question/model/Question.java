@@ -49,6 +49,14 @@ public class Question {
     @Column(nullable = false)
     private Integer points;
 
+    @Column(name = "group_id")
+    private Long groupId;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "visibility", nullable = false)
+    @Builder.Default
+    private QuestionVisibility visibility = QuestionVisibility.PUBLIC;
+
     @OneToMany(mappedBy = "question", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     @Builder.Default
     private List<Answer> answers = new ArrayList<>();
@@ -78,5 +86,22 @@ public class Question {
     public void clearAnswers() {
         answers.forEach(answer -> answer.setQuestion(null));
         answers.clear();
+    }
+
+    // Helper methods for group functionality
+    public boolean isPublicQuestion() {
+        return groupId == null;
+    }
+
+    public boolean isGroupQuestion() {
+        return groupId != null;
+    }
+
+    public boolean isPublicVisibility() {
+        return visibility == QuestionVisibility.PUBLIC;
+    }
+
+    public boolean isPrivateVisibility() {
+        return visibility == QuestionVisibility.PRIVATE;
     }
 }

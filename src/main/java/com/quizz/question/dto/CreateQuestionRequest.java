@@ -2,6 +2,7 @@ package com.quizz.question.dto;
 
 import com.quizz.question.common.constants.ValidationConstants;
 import com.quizz.question.model.QuestionType;
+import com.quizz.question.model.QuestionVisibility;
 import com.quizz.question.validation.AtLeastOneCorrectAnswer;
 import com.quizz.question.validation.Sanitized;
 import com.quizz.question.validation.ValidCategoryReference;
@@ -51,6 +52,14 @@ public class CreateQuestionRequest {
     @Max(value = ValidationConstants.POINTS_MAX_VALUE,
          message = ValidationConstants.POINTS_RANGE)
     private Integer points;
+
+    // Group ID reference (null = public question)
+    private Long groupId;
+
+    // Question visibility (PUBLIC or PRIVATE)
+    @NotNull(message = "Visibility is required")
+    @Builder.Default
+    private QuestionVisibility visibility = QuestionVisibility.PUBLIC;
 
     @NotNull(message = ValidationConstants.ANSWERS_REQUIRED)
     @Size(min = ValidationConstants.MIN_ANSWERS_REQUIRED,
