@@ -1,0 +1,44 @@
+databaseChangeLog:
+  - changeSet:
+      id: 003-add-group-support-to-categories
+      author: question-service
+      changes:
+        # Add groupId column to categories (nullable - null means public category)
+        - addColumn:
+            tableName: categories
+            columns:
+              - column:
+                  name: group_id
+                  type: BIGINT
+                  constraints:
+                    nullable: true
+                  remarks: "Reference to group (null = public category available to all)"
+
+        # Add index for group-based category queries
+        - createIndex:
+            indexName: idx_categories_group_id
+            tableName: categories
+            columns:
+              - column:
+                  name: group_id
+
+        # Add composite index for group and status
+        - createIndex:
+            indexName: idx_categories_group_status
+            tableName: categories
+            columns:
+              - column:
+                  name: group_id
+              - column:
+                  name: status
+
+      rollback:
+        - dropIndex:
+            indexName: idx_categories_group_status
+            tableName: categories
+        - dropIndex:
+            indexName: idx_categories_group_id
+            tableName: categories
+        - dropColumn:
+            tableName: categories
+            columnName: group_id

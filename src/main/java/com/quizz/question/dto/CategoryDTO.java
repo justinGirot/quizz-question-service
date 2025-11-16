@@ -19,6 +19,7 @@ public class CategoryDTO {
     private String name;
     private String description;
     private CategoryStatus status;
+    private Long groupId;  // null = public category, otherwise group-specific
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     private Long createdBy;

@@ -26,4 +26,7 @@ public class CreateCategoryRequest {
     @Size(max = 500, message = "Description must not exceed {max} characters")
     @Sanitized(type = Sanitized.SanitizationType.TEXT)
     private String description;
+
+    // Group ID (null = public category for all, otherwise group-specific)
+    private Long groupId;
 }

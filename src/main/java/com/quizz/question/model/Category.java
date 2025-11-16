@@ -39,6 +39,9 @@ public class Category {
     @Builder.Default
     private CategoryStatus status = CategoryStatus.ACTIVE;
 
+    @Column(name = "group_id")
+    private Long groupId;
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
@@ -49,4 +52,13 @@ public class Category {
 
     @Column(name = "created_by", nullable = false)
     private Long createdBy;
+
+    // Helper methods
+    public boolean isPublicCategory() {
+        return groupId == null;
+    }
+
+    public boolean isGroupCategory() {
+        return groupId != null;
+    }
 }
