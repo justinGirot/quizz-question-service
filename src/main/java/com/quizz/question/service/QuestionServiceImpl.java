@@ -1,5 +1,6 @@
 package com.quizz.question.service;
 
+import com.quizz.question.client.GroupServiceClient;
 import com.quizz.question.common.constants.ErrorConstants;
 import com.quizz.question.dto.CreateQuestionRequest;
 import com.quizz.question.dto.QuestionDTO;
@@ -9,10 +10,10 @@ import com.quizz.question.exception.QuestionNotFoundException;
 import com.quizz.question.exception.ValidationException;
 import com.quizz.question.mapper.QuestionMapper;
 import com.quizz.question.model.Category;
-import com.quizz.question.model.CategoryStatus;
 import com.quizz.question.model.DifficultyLevel;
 import com.quizz.question.model.Question;
 import com.quizz.question.model.QuestionStatus;
+import com.quizz.question.model.QuestionVisibility;
 import com.quizz.question.repository.CategoryRepository;
 import com.quizz.question.repository.DifficultyLevelRepository;
 import com.quizz.question.repository.QuestionRepository;
@@ -39,16 +40,25 @@ public class QuestionServiceImpl implements QuestionService {
     private final CategoryRepository categoryRepository;
     private final DifficultyLevelRepository difficultyLevelRepository;
     private final QuestionMapper questionMapper;
+    private final GroupServiceClient groupServiceClient;
 
     @Override
     @Transactional
     public QuestionDTO createQuestion(CreateQuestionRequest request, UserContext userContext) {
-        log.info("Creating question for user: {}", userContext.getUserId());
+        log.info("Creating question for user: {} (groupId: {})", userContext.getUserId(), request.getGroupId());
+
+        // Validate group access if groupId is provided
+        if (request.getGroupId() != null) {
+            validateGroupAccess(request.getGroupId(), userContext.getUserId());
+        }
+
+        // Validate visibility rules
+        validateVisibility(request.getGroupId(), request.getVisibility());
 
         Question question = questionMapper.toEntity(request, userContext.getUserId());
 
-        // Resolve and set category FK reference
-        Category category = resolveCategoryReference(request, userContext.getUserId());
+        // Resolve and set category FK reference (only categoryId, no auto-creation)
+        Category category = resolveCategoryReference(request);
         question.setCategory(category);
 
         // Resolve and set difficulty level FK reference
@@ -57,7 +67,8 @@ public class QuestionServiceImpl implements QuestionService {
 
         Question savedQuestion = questionRepository.save(question);
 
-        log.info("Question created with ID: {}", savedQuestion.getId());
+        log.info("Question created with ID: {} (group: {}, visibility: {})",
+                 savedQuestion.getId(), savedQuestion.getGroupId(), savedQuestion.getVisibility());
         return questionMapper.toDTO(savedQuestion);
     }
 
@@ -122,6 +133,15 @@ public class QuestionServiceImpl implements QuestionService {
             throw new ForbiddenException(ErrorConstants.FORBIDDEN_UPDATE);
         }
 
+        // If changing group, validate access to new group
+        if (request.getGroupId() != null &&
+            !java.util.Objects.equals(request.getGroupId(), question.getGroupId())) {
+            validateGroupAccess(request.getGroupId(), userContext.getUserId());
+        }
+
+        // Validate visibility rules
+        validateVisibility(request.getGroupId(), request.getVisibility());
+
         // Validation: Cannot edit non-DRAFT questions unless changing status only
         if (question.getStatus() != QuestionStatus.DRAFT && !isStatusOnlyChange(question, request)) {
             throw new ValidationException(ErrorConstants.ONLY_DRAFT_EDITABLE);
@@ -134,8 +154,8 @@ public class QuestionServiceImpl implements QuestionService {
         questionMapper.updateEntityFromDTO(question, request);
 
         // Resolve and update category FK reference if provided
-        if (request.getCategoryId() != null || request.getCategoryName() != null) {
-            Category category = resolveCategoryReference(request, userContext.getUserId());
+        if (request.getCategoryId() != null) {
+            Category category = resolveCategoryReference(request);
             question.setCategory(category);
         }
 
@@ -231,61 +251,57 @@ public class QuestionServiceImpl implements QuestionService {
     }
 
     /**
+     * Validate user has access to group
+     */
+    private void validateGroupAccess(Long groupId, Long userId) {
+        if (groupId == null) {
+            return; // Public question, no validation needed
+        }
+
+        log.debug("Validating group access: groupId={}, userId={}", groupId, userId);
+        boolean isMember = groupServiceClient.isMemberOfGroup(groupId, userId);
+        if (!isMember) {
+            throw new ForbiddenException("You must be a member of the group to create questions in it");
+        }
+    }
+
+    /**
+     * Validate visibility rules
+     */
+    private void validateVisibility(Long groupId, QuestionVisibility visibility) {
+        if (groupId == null && visibility == QuestionVisibility.PRIVATE) {
+            throw new ValidationException("Public questions (no group) cannot be PRIVATE");
+        }
+    }
+
+    /**
      * Resolve category reference from request
-     * Handles both categoryId (existing category) and categoryName (new custom category)
+     * Only handles categoryId (existing category) - no auto-creation
+     * Note: categoryName field is deprecated, only admins can create categories
      *
      * @param request CreateQuestionRequest or UpdateQuestionRequest
-     * @param userId  User ID creating/updating the question
      * @return Category entity
      */
-    private Category resolveCategoryReference(Object request, Long userId) {
+    private Category resolveCategoryReference(Object request) {
         final Long categoryId;
-        final String categoryName;
 
-        // Extract categoryId and categoryName from request
+        // Extract categoryId from request
         if (request instanceof CreateQuestionRequest) {
-            CreateQuestionRequest createRequest = (CreateQuestionRequest) request;
-            categoryId = createRequest.getCategoryId();
-            categoryName = createRequest.getCategoryName();
+            categoryId = ((CreateQuestionRequest) request).getCategoryId();
         } else if (request instanceof UpdateQuestionRequest) {
-            UpdateQuestionRequest updateRequest = (UpdateQuestionRequest) request;
-            categoryId = updateRequest.getCategoryId();
-            categoryName = updateRequest.getCategoryName();
+            categoryId = ((UpdateQuestionRequest) request).getCategoryId();
         } else {
             categoryId = null;
-            categoryName = null;
         }
 
-        // Case 1: Category ID provided - lookup existing category
-        if (categoryId != null) {
-            log.debug("Looking up category by ID: {}", categoryId);
-            final Long finalCategoryId = categoryId;
-            return categoryRepository.findById(categoryId)
-                    .orElseThrow(() -> new ValidationException("Category not found with ID: " + finalCategoryId));
+        // Category ID is required
+        if (categoryId == null) {
+            throw new ValidationException("Category ID is required");
         }
 
-        // Case 2: Category name provided - create new category or lookup existing
-        if (categoryName != null && !categoryName.trim().isEmpty()) {
-            log.debug("Resolving category by name: {}", categoryName);
-            final String trimmedName = categoryName.trim();
-
-            // Check if category already exists (case-insensitive)
-            return categoryRepository.findByNameIgnoreCase(trimmedName)
-                    .orElseGet(() -> {
-                        // Create new category
-                        log.info("Creating new category: {}", trimmedName);
-                        Category newCategory = Category.builder()
-                                .name(trimmedName)
-                                .description("User-created category")
-                                .status(CategoryStatus.ACTIVE)
-                                .createdBy(userId)
-                                .build();
-                        return categoryRepository.save(newCategory);
-                    });
-        }
-
-        // Case 3: No category provided - throw validation error
-        throw new ValidationException("Either categoryId or categoryName must be provided");
+        log.debug("Looking up category by ID: {}", categoryId);
+        return categoryRepository.findById(categoryId)
+                .orElseThrow(() -> new ValidationException("Category not found with ID: " + categoryId));
     }
 
     /**

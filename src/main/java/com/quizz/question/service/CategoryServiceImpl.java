@@ -31,9 +31,9 @@ public class CategoryServiceImpl implements CategoryService {
     @Override
     @Transactional
     public CategoryDTO createCategory(CreateCategoryRequest request, Long adminId) {
-        log.info("Creating category: {}", request.getName());
+        log.info("Creating category: {} (groupId: {})", request.getName(), request.getGroupId());
 
-        // Check if category already exists
+        // Check if category already exists (case-insensitive)
         if (categoryRepository.existsByNameIgnoreCase(request.getName())) {
             throw new ValidationException("Category with name '" + request.getName() + "' already exists");
         }
@@ -42,11 +42,12 @@ public class CategoryServiceImpl implements CategoryService {
                 .name(request.getName())
                 .description(request.getDescription())
                 .status(CategoryStatus.ACTIVE)
+                .groupId(request.getGroupId())  // null = public, otherwise group-specific
                 .createdBy(adminId)
                 .build();
 
         Category saved = categoryRepository.save(category);
-        log.info("Category created with ID: {}", saved.getId());
+        log.info("Category created with ID: {} (public: {})", saved.getId(), saved.isPublicCategory());
 
         return toDTO(saved);
     }
@@ -63,8 +64,51 @@ public class CategoryServiceImpl implements CategoryService {
     @Override
     @Transactional(readOnly = true)
     public List<CategoryDTO> getActiveCategories() {
-        log.info("Fetching active categories");
+        log.info("Fetching all active categories");
         return categoryRepository.findByStatusOrderByNameAsc(CategoryStatus.ACTIVE).stream()
+                .map(this::toDTO)
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * Get categories accessible for creating a question in a specific group
+     * Returns: public categories + group-specific categories
+     */
+    @Transactional(readOnly = true)
+    public List<CategoryDTO> getAccessibleCategories(Long groupId) {
+        log.info("Fetching accessible categories for groupId: {}", groupId);
+
+        if (groupId == null) {
+            // No group - return only public categories
+            return categoryRepository.findByGroupIdIsNullAndStatusOrderByNameAsc(CategoryStatus.ACTIVE).stream()
+                    .map(this::toDTO)
+                    .collect(Collectors.toList());
+        } else {
+            // Group specified - return public + group-specific categories
+            return categoryRepository.findAccessibleCategoriesForGroup(groupId, CategoryStatus.ACTIVE).stream()
+                    .map(this::toDTO)
+                    .collect(Collectors.toList());
+        }
+    }
+
+    /**
+     * Get only public categories (groupId is null)
+     */
+    @Transactional(readOnly = true)
+    public List<CategoryDTO> getPublicCategories() {
+        log.info("Fetching public categories only");
+        return categoryRepository.findByGroupIdIsNullAndStatusOrderByNameAsc(CategoryStatus.ACTIVE).stream()
+                .map(this::toDTO)
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * Get categories for a specific group
+     */
+    @Transactional(readOnly = true)
+    public List<CategoryDTO> getGroupCategories(Long groupId) {
+        log.info("Fetching categories for groupId: {}", groupId);
+        return categoryRepository.findByGroupIdAndStatusOrderByNameAsc(groupId, CategoryStatus.ACTIVE).stream()
                 .map(this::toDTO)
                 .collect(Collectors.toList());
     }
@@ -125,6 +169,7 @@ public class CategoryServiceImpl implements CategoryService {
                 .name(category.getName())
                 .description(category.getDescription())
                 .status(category.getStatus())
+                .groupId(category.getGroupId())
                 .createdAt(category.getCreatedAt())
                 .updatedAt(category.getUpdatedAt())
                 .createdBy(category.getCreatedBy())
