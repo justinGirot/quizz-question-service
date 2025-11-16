@@ -1,0 +1,233 @@
+# ===================================================================
+# Question Service Configuration
+# ===================================================================
+
+# ===================================================================
+# Spring Boot Configuration
+# ===================================================================
+spring:
+  application:
+    name: question-service
+
+  # ===================================================================
+  # Database Configuration
+  # ===================================================================
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/quiz_question}
+    username: ${SPRING_DATASOURCE_USERNAME:postgres}
+    password: ${SPRING_DATASOURCE_PASSWORD:postgres}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 5
+      connection-timeout: 30000
+      idle-timeout: 600000
+      max-lifetime: 1800000
+
+  # ===================================================================
+  # JPA / Hibernate Configuration
+  # ===================================================================
+  jpa:
+    hibernate:
+      ddl-auto: none
+    show-sql: false
+    open-in-view: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+        use_sql_comments: false
+        jdbc:
+          batch_size: 20
+          fetch_size: 50
+        order_inserts: true
+        order_updates: true
+
+  # ===================================================================
+  # Liquibase Configuration
+  # ===================================================================
+  liquibase:
+    change-log: classpath:db/changelog/db.changelog-master.yaml
+    enabled: true
+    drop-first: false
+
+# ===================================================================
+# Server Configuration
+# ===================================================================
+server:
+  port: ${SERVER_PORT:8082}
+  compression:
+    enabled: true
+    mime-types: application/json,application/xml,text/html,text/xml,text/plain
+  error:
+    include-message: always
+    include-binding-errors: always
+    include-stacktrace: never
+    include-exception: false
+
+# ===================================================================
+# Eureka Client Configuration (Optional)
+# ===================================================================
+# Set EUREKA_CLIENT_ENABLED=false to disable Eureka registration
+# This allows the service to run standalone without Eureka server
+eureka:
+  client:
+    enabled: ${EUREKA_CLIENT_ENABLED:false}
+    service-url:
+      defaultZone: ${EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE:http://localhost:8761/eureka/}
+    register-with-eureka: ${EUREKA_CLIENT_ENABLED:true}
+    fetch-registry: ${EUREKA_CLIENT_ENABLED:true}
+    registry-fetch-interval-seconds: 30
+  instance:
+    prefer-ip-address: true
+    instance-id: ${spring.application.name}:${server.port}
+    lease-renewal-interval-in-seconds: 30
+    lease-expiration-duration-in-seconds: 90
+
+# ===================================================================
+# OpenAPI / Swagger Configuration
+# ===================================================================
+springdoc:
+  api-docs:
+    path: /api-docs
+    enabled: true
+  swagger-ui:
+    path: /swagger-ui.html
+    enabled: true
+    operations-sorter: method
+    tags-sorter: alpha
+    display-request-duration: true
+    doc-expansion: none
+  show-actuator: false
+
+# ===================================================================
+# Actuator Configuration
+# ===================================================================
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+      base-path: /actuator
+  endpoint:
+    health:
+      show-details: when-authorized
+      probes:
+        enabled: true
+  metrics:
+    export:
+      prometheus:
+        enabled: true
+  info:
+    env:
+      enabled: true
+
+# ===================================================================
+# JWT Configuration
+# ===================================================================
+jwt:
+  secret: ${JWT_SECRET:404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970}
+  expiration: 604800000 # 7 days in milliseconds
+
+# ===================================================================
+# Application-specific Configuration
+# ===================================================================
+application:
+  name: Question Service
+  version: 0.0.1-SNAPSHOT
+  description: Question management service with workflow support
+  security:
+    cors:
+      allowed-origins:
+        - http://localhost:5173
+        - http://localhost:3000
+      allowed-methods:
+        - GET
+        - POST
+        - PUT
+        - DELETE
+        - OPTIONS
+      allowed-headers:
+        - "*"
+      max-age: 3600
+  validation:
+    sanitize-inputs: true
+    strict-mode: true
+
+# ===================================================================
+# Logging Configuration
+# ===================================================================
+logging:
+  level:
+    root: INFO
+    com.quizz.question: DEBUG
+    org.springframework.web: INFO
+    org.springframework.security: DEBUG
+    org.hibernate.SQL: DEBUG
+    org.hibernate.type.descriptor.sql.BasicBinder: TRACE
+    org.liquibase: INFO
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} - %msg%n"
+    file: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+  file:
+    name: logs/question-service.log
+    max-size: 10MB
+    max-history: 30
+
+---
+# ===================================================================
+# Profile: development
+# ===================================================================
+spring:
+  config:
+    activate:
+      on-profile: dev
+
+  jpa:
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+
+logging:
+  level:
+    com.quizz.question: DEBUG
+    org.springframework.web: DEBUG
+
+---
+# ===================================================================
+# Profile: production
+# ===================================================================
+spring:
+  config:
+    activate:
+      on-profile: prod
+
+  jpa:
+    show-sql: false
+
+logging:
+  level:
+    root: WARN
+    com.quizz.question: INFO
+    org.springframework.web: WARN
+    org.hibernate.SQL: WARN
+
+---
+# ===================================================================
+# Profile: standalone (without Eureka)
+# ===================================================================
+spring:
+  config:
+    activate:
+      on-profile: standalone
+
+eureka:
+  client:
+    enabled: false
+    register-with-eureka: false
+    fetch-registry: false
+
+logging:
+  level:
+    com.quizz.question: INFO

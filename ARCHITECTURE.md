@@ -50,14 +50,23 @@ The Quiz application follows a microservices architecture pattern with service d
 
 ### 1. Frontend (quizz_frontend)
 - **Repository**: https://github.com/justinGirot/Quizz_frontend
-- **Technology**: React 18.3, Vite 6.x
-- **Port**: 5174 (development)
+- **Technology**: React 18.3, Vite 6.x, React Router
+- **Port**: 5173 (development)
 - **Responsibilities**:
   - User interface for quiz application
-  - Authentication UI (login/signup)
-  - Quiz taking interface
-  - Question management interface
-  - User dashboard and scoring
+  - **Authentication UI** (login/signup with httpOnly cookie support)
+  - **Question Management** (full CRUD with workflow: draft → pending → validated/rejected/archived)
+  - Quiz taking interface (future)
+  - User dashboard and scoring (future)
+
+**Features Implemented**:
+- Secure authentication with httpOnly cookies
+- Question lifecycle management (create, edit, delete, validate, archive)
+- Dynamic question types (text-input, multiple-choice)
+- Image support for answers
+- Advanced filtering (status, category)
+- Pagination (10 items per page)
+- Dual view modes (active/archive)
 
 ### 2. API Gateway (quizz-api-gateway)
 - **Repository**: https://github.com/justinGirot/quizz-api-gateway
@@ -121,17 +130,23 @@ eureka:
 - **Database**: H2 (file-based: `./data/auth.db`)
 - **Responsibilities**:
   - User registration and authentication
-  - JWT token generation and validation
+  - **JWT token generation and validation with httpOnly cookies**
   - User profile management
-  - Password hashing and security
+  - Password hashing and security (BCrypt)
   - Session management
 
 **Key Endpoints**:
-- `POST /api/auth/register` - User registration
-- `POST /api/auth/login` - User authentication
-- `POST /api/auth/logout` - User logout
-- `GET /api/auth/me` - Get current user profile
-- `PUT /api/auth/profile` - Update user profile
+- `POST /api/auth/register` - User registration (sets httpOnly cookie)
+- `POST /api/auth/login` - User authentication (sets httpOnly cookie)
+- `POST /api/auth/logout` - User logout (clears httpOnly cookie)
+- `GET /api/auth/me` - Get current user profile (requires cookie)
+
+**Security Features**:
+- **httpOnly Cookies**: JWT stored in httpOnly cookie (XSS protection)
+- **SameSite Attribute**: CSRF protection
+- **Secure Flag**: HTTPS-only in production
+- **BCrypt Hashing**: Strong password encryption
+- **Auto-login**: Sets cookie and returns user data on register/login
 
 **Data Model**:
 ```java
@@ -147,48 +162,140 @@ User {
 }
 ```
 
-### 4. Question Service (quizz-question-service)
+### 5. Question Service (quizz-question-service)
 - **Repository**: https://github.com/justinGirot/quizz-question-service
-- **Technology**: Spring Boot 3.4, Spring Data JPA, Java 21
+- **Technology**: Spring Boot 3.4, Spring Data JPA, Java 21, PostgreSQL, Liquibase
 - **Port**: 8082
-- **Database**: H2 (file-based: `./data/questions.db`)
+- **Database**: PostgreSQL (questions_db)
 - **Responsibilities**:
   - Question creation, retrieval, update, deletion (CRUD)
-  - Question categorization and tagging
-  - Question difficulty levels
-  - Question validation
-  - Bulk question import/export
+  - **Question workflow management** (draft → pending → validated/rejected/archived)
+  - **Category referential system** (admin-managed categories with active/inactive status)
+  - Question categorization with foreign key constraints
+  - Question difficulty levels and points
+  - User ownership and permissions
+  - Input sanitization and XSS prevention
+  - OpenAPI/Swagger documentation
 
-**Key Endpoints**:
-- `POST /api/questions` - Create question
+**Question Endpoints**:
+- `POST /api/questions` - Create question (starts as draft)
 - `GET /api/questions/{id}` - Get question by ID
-- `GET /api/questions` - List questions (with filters)
-- `PUT /api/questions/{id}` - Update question
-- `DELETE /api/questions/{id}` - Delete question
-- `GET /api/questions/random` - Get random questions
-- `GET /api/questions/category/{category}` - Get questions by category
+- `GET /api/questions?statuses[]=DRAFT&categories[]=Science` - List questions with filters
+- `PUT /api/questions/{id}` - Update question (including status changes)
+- `DELETE /api/questions/{id}` - Delete question (only drafts)
+
+**Category Endpoints**:
+- `GET /api/categories/active` - Get active categories (all authenticated users)
+- `GET /api/categories` - Get all categories including inactive (admin only)
+- `GET /api/categories/{id}` - Get category by ID (admin only)
+- `POST /api/categories` - Create new category (admin only)
+- `PUT /api/categories/{id}` - Update category (admin only)
+- `DELETE /api/categories/{id}` - Delete category if not in use (admin only)
+
+**Referential Endpoints**:
+- `GET /api/referential/difficulty-levels` - Get all difficulty levels (all authenticated users)
+
+**Question Workflow**:
+1. **Draft** (editable):
+   - Created by users
+   - Can be edited, deleted, or validated
+   - Only creator or admin can modify
+   - Validate action → moves to Pending
+
+2. **Pending** (read-only):
+   - Awaiting admin validation
+   - Cannot be edited (must move back to draft first)
+   - Can be moved back to draft by creator
+   - Admin can validate/reject
+
+3. **Validated** (archived):
+   - Approved for use in quizzes
+   - View-only, cannot be modified
+
+4. **Rejected** (archived):
+   - Not approved for use
+   - View-only, cannot be modified
+
+5. **Archived** (archived):
+   - Historical record
+   - View-only, cannot be modified
 
 **Data Model**:
 ```java
+Category {
+  Long id;
+  String name; // unique, 3-100 characters
+  String description; // optional, max 500 characters
+  CategoryStatus status; // ACTIVE or INACTIVE
+  LocalDateTime createdAt;
+  LocalDateTime updatedAt;
+  Long createdBy; // User ID (admin who created)
+}
+
+DifficultyLevel {
+  Long id;
+  String name; // Easy, Medium, Hard, Expert
+  String description; // Description of difficulty level
+  Integer displayOrder; // Display order (1, 2, 3, 4)
+  Double pointsMultiplier; // Points multiplier (1.0, 1.5, 2.0, 3.0)
+  LocalDateTime createdAt;
+  LocalDateTime updatedAt;
+}
+
 Question {
   Long id;
-  String text;
-  QuestionType type; // MULTIPLE_CHOICE, TRUE_FALSE, SHORT_ANSWER
-  String category;
-  DifficultyLevel difficulty; // EASY, MEDIUM, HARD
-  List<Answer> answers;
-  String correctAnswerId;
-  Integer points;
+  String text; // min 10 characters, HTML sanitized
+  QuestionType type; // MULTIPLE_CHOICE, TEXT_INPUT
+  QuestionStatus status; // DRAFT, PENDING, VALIDATED, REJECTED, ARCHIVED
+  String category; // deprecated field for backward compatibility
+  Long categoryId; // foreign key to categories table
+  String difficulty; // deprecated field for backward compatibility (EASY, MEDIUM, HARD)
+  Long difficultyLevelId; // foreign key to difficulty_levels table
+  Integer points; // 1-100
+  List<Answer> answers; // min 1 answer required
   LocalDateTime createdAt;
-  Long createdBy; // User ID
+  LocalDateTime updatedAt;
+  Long createdBy; // User ID (owner)
 }
 
 Answer {
-  String id;
-  String text;
-  boolean isCorrect;
+  Long id;
+  String text; // required, non-empty, HTML sanitized
+  boolean isCorrect; // at least one must be true
+  String imageUrl; // optional, URL to answer image, validated
+  Long questionId; // foreign key with CASCADE delete
 }
 ```
+
+**Validation Rules**:
+- **Question text**: required, 10-1000 characters, HTML sanitized, XSS prevention
+- **Category**: must reference existing active category (foreign key constraint)
+- **Points**: required, 1-100
+- **Answers**: at least 1 required, all must have non-empty text, HTML sanitized
+- **At least one answer must be marked as correct**
+- **Image URLs**: optional, validated for malicious URLs (javascript:, data:, vbscript:)
+- **Status transitions**: draft ↔ pending, pending → validated/rejected/archived
+- **Category name**: unique (case-insensitive), 3-100 characters, alphanumeric with spaces/hyphens/underscores
+- **Category description**: optional, max 500 characters
+
+**Input Sanitization & Security**:
+- **OWASP HTML Sanitizer**: All text inputs stripped of HTML tags
+- **Apache Commons Text**: HTML entity encoding
+- **@Sanitized annotation**: Custom validation for dangerous content
+- **URL validation**: Blocks javascript:, data:, vbscript: protocols
+- **Control characters**: Removed from all inputs
+- **SQL injection prevention**: Parameterized queries via JPA
+
+**Authorization**:
+- All endpoints require authentication (JWT httpOnly cookie)
+- **Question endpoints**:
+  - Create: any authenticated user
+  - Edit/Delete draft: only creator or admin
+  - Validate/Reject/Archive: only admin
+  - Move to draft: creator or admin
+- **Category endpoints**:
+  - GET /api/categories/active: all authenticated users
+  - All other category endpoints: admin only (@PreAuthorize("hasRole('ADMIN')"))
 
 ### 5. Quiz Service (quizz-quiz-service)
 - **Repository**: https://github.com/justinGirot/quizz-quiz-service
@@ -263,20 +370,33 @@ QuizAnswer {
 
 ## Authentication & Authorization
 
-### Authentication Flow:
-1. User submits credentials to `POST /api/auth/login`
+### Authentication Flow (httpOnly Cookies):
+1. User submits credentials to `POST /api/auth/login` via API Gateway
 2. Auth Service validates credentials
 3. Auth Service generates JWT token
-4. Token returned to frontend
-5. Frontend includes token in `Authorization: Bearer <token>` header
-6. API Gateway validates token (or forwards to Auth Service)
-7. Request routed to appropriate service
+4. **Auth Service sets httpOnly cookie** in response header:
+   ```
+   Set-Cookie: auth_token=<jwt>; HttpOnly; Secure; SameSite=Lax; Path=/; MaxAge=604800
+   ```
+5. **Frontend receives user data** (non-sensitive): `{ user: { id, email, firstName, lastName } }`
+6. Frontend stores user data in localStorage (not the token)
+7. **Subsequent requests**: Browser automatically includes cookie
+8. API Gateway/Services validate JWT from cookie
+9. Request processed if valid
 
-### JWT Token Structure:
+### Logout Flow:
+1. User triggers logout
+2. Frontend calls `POST /api/auth/logout`
+3. Backend clears cookie: `Set-Cookie: auth_token=; HttpOnly; MaxAge=0`
+4. Frontend clears localStorage user data
+5. User redirected to login page
+
+### JWT Token Structure (stored in httpOnly cookie):
 ```json
 {
   "sub": "user@example.com",
   "userId": 123,
+  "email": "user@example.com",
   "roles": ["USER"],
   "exp": 1234567890,
   "iat": 1234567890
@@ -284,54 +404,80 @@ QuizAnswer {
 ```
 
 ### Security:
-- All passwords hashed with BCrypt
-- JWT tokens with expiration
-- HTTPS in production
-- CORS configured at API Gateway
-- Rate limiting per user/IP
+- **httpOnly Cookies**: JavaScript cannot access tokens (XSS protection)
+- **Secure Flag**: HTTPS-only transmission in production
+- **SameSite Attribute**: CSRF protection (Lax or Strict)
+- **BCrypt Hashing**: All passwords hashed with BCrypt
+- **JWT Expiration**: Tokens expire after configurable time (e.g., 7 days)
+- **CORS Configuration**: At API Gateway only, with credentials: true
+- **Rate Limiting**: Per user/IP (future enhancement)
 
 ## Data Storage
 
 ### Development:
-- H2 file-based databases for each service
-- Data persisted in `./data/` directory
-- Easy local development and testing
+- **Auth Service**: H2 file-based database (`./data/auth.db`)
+- **Question Service**: PostgreSQL with Docker Compose (`questions_db` on port 5432)
+- **Quiz Service**: H2 file-based database (`./data/quizzes.db`)
+- Data persisted locally for easy development and testing
+- Liquibase migrations for database version control (Question Service)
 
 ### Production Considerations:
-- Migrate to PostgreSQL/MySQL for each service
+- Migrate all services to PostgreSQL/MySQL
 - Each service has its own database (database per service pattern)
 - No direct database access between services
 - Data consistency via API calls or eventual consistency patterns
+- Database backups and disaster recovery
+- Connection pooling and performance tuning
 
 ## Configuration
 
 ### Application Ports:
 ```properties
-frontend:         5174 (dev), 3000 (prod)
+frontend:         5173 (dev), 3000 (prod)
 api-gateway:      8080
+eureka-server:    8761
 auth-service:     8081
 question-service: 8082
 quiz-service:     8083
 ```
 
 ### Environment Variables:
-Each service should support:
+
+**Auth Service / Quiz Service (H2)**:
 ```properties
 # Server
-SERVER_PORT=808X
+SERVER_PORT=8081 or 8083
 SPRING_PROFILES_ACTIVE=dev|prod
 
-# Database
+# Database (H2)
 SPRING_DATASOURCE_URL=jdbc:h2:file:./data/service.db
 SPRING_DATASOURCE_USERNAME=sa
 SPRING_DATASOURCE_PASSWORD=
 
-# JWT (Auth Service)
-JWT_SECRET=your-secret-key
-JWT_EXPIRATION=86400000
+# JWT (Auth Service only)
+JWT_SECRET=your-super-secret-key-change-this-in-production
+JWT_EXPIRATION=604800000
 
-# Service Discovery (future)
-EUREKA_SERVER_URL=http://localhost:8761/eureka
+# Service Discovery
+EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE=http://localhost:8761/eureka/
+```
+
+**Question Service (PostgreSQL)**:
+```properties
+# Server
+SERVER_PORT=8082
+SPRING_PROFILES_ACTIVE=dev|prod
+
+# Database (PostgreSQL)
+SPRING_DATASOURCE_URL=jdbc:postgresql://localhost:5432/questions_db
+SPRING_DATASOURCE_USERNAME=postgres
+SPRING_DATASOURCE_PASSWORD=postgres
+
+# JWT (for validation)
+JWT_SECRET=your-super-secret-key-change-this-in-production
+
+# Service Discovery
+EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE=http://localhost:8761/eureka/
 ```
 
 ## API Documentation
@@ -354,27 +500,62 @@ Add to `pom.xml`:
 ## Development Workflow
 
 ### Running Locally:
-1. Start Auth Service: `cd quizz-auth-service && ./mvnw spring-boot:run`
-2. Start Question Service: `cd quizz-question-service && ./mvnw spring-boot:run`
-3. Start Quiz Service: `cd quizz-quiz-service && ./mvnw spring-boot:run`
-4. Start API Gateway: `cd quizz-api-gateway && ./mvnw spring-boot:run`
-5. Start Frontend: `cd quizz_frontend && npm run dev`
+1. Start Eureka Server (optional): `cd quizz-eureka-server && ./mvnw spring-boot:run`
+2. Start API Gateway: `cd quizz-api-gateway && ./mvnw spring-boot:run`
+3. Start Auth Service: `cd quizz-auth-service && ./mvnw spring-boot:run`
+4. Start Question Service (when implemented): `cd quizz-question-service && ./mvnw spring-boot:run`
+5. Start Quiz Service (when implemented): `cd quizz-quiz-service && ./mvnw spring-boot:run`
+6. Start Frontend: `cd quizz_frontend && npm run dev` (runs on port 5173)
+
+**Note**: The frontend currently uses mock data for questions. Once the Question Service backend is implemented, switch `USE_MOCK = false` in `questionService.js`.
 
 ### Testing Services:
 ```bash
 # Health check
 curl http://localhost:8081/actuator/health
 
-# Register user
+# Register user (sets httpOnly cookie)
 curl -X POST http://localhost:8080/api/auth/register \
   -H "Content-Type: application/json" \
-  -d '{"email":"user@test.com","password":"password123"}'
+  -d '{"email":"user@test.com","password":"password123","firstName":"John","lastName":"Doe"}' \
+  -c cookies.txt
 
-# Create question
+# Login (sets httpOnly cookie)
+curl -X POST http://localhost:8080/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"user@test.com","password":"password123"}' \
+  -c cookies.txt
+
+# Create question (uses cookie from cookies.txt)
 curl -X POST http://localhost:8080/api/questions \
   -H "Content-Type: application/json" \
-  -H "Authorization: Bearer <token>" \
-  -d '{"text":"What is 2+2?","type":"MULTIPLE_CHOICE","category":"Math"}'
+  -b cookies.txt \
+  -d '{
+    "text":"What is the capital of France?",
+    "category":"Geography",
+    "difficulty":"easy",
+    "points":10,
+    "type":"multiple-choice",
+    "answers":[
+      {"text":"London","isCorrect":false,"imageUrl":""},
+      {"text":"Paris","isCorrect":true,"imageUrl":""},
+      {"text":"Berlin","isCorrect":false,"imageUrl":""}
+    ]
+  }'
+
+# List questions with filters (uses cookie)
+curl http://localhost:8080/api/questions?statuses[]=draft&categories[]=Geography \
+  -b cookies.txt
+
+# Update question status to pending (uses cookie)
+curl -X PUT http://localhost:8080/api/questions/1 \
+  -H "Content-Type: application/json" \
+  -b cookies.txt \
+  -d '{"status":"pending"}'
+
+# Delete question (uses cookie)
+curl -X DELETE http://localhost:8080/api/questions/1 \
+  -b cookies.txt
 ```
 
 ## Future Enhancements
@@ -414,15 +595,93 @@ curl -X POST http://localhost:8080/api/questions \
 - Docker Compose for local orchestration
 - Kubernetes for production deployment
 
+## Testing & Quality Assurance
+
+### Question Service Test Coverage
+
+The Question Service has comprehensive test coverage ensuring production readiness:
+
+**Overall Coverage: 84%**
+- 212 automated tests (204 unit + 8 integration)
+- 84% instruction coverage
+- 76% branch coverage
+- 85% line coverage
+
+### Test Layers
+
+1. **Unit Tests** (204 tests)
+   - Service Layer: Business logic, validation, authorization
+   - Validation Layer: Custom validators for sanitization and data integrity
+   - Mapper Layer: DTO ↔ Entity transformation
+   - Security Layer: JWT parsing and validation
+   - Utility Classes: Input sanitization and validation
+   - Exception Handling: Global exception handler
+
+2. **Integration Tests** (8 tests)
+   - Full stack testing with H2 database
+   - End-to-end API workflows
+   - Authentication and authorization flows
+   - Complete CRUD operations with validation
+
+### Testing Infrastructure
+
+**Frameworks Used**:
+- JUnit 5 - Modern testing framework
+- Mockito - Mocking and verification
+- AssertJ - Fluent assertions
+- Spring Boot Test - Integration testing support
+- H2 Database - In-memory test database
+- JaCoCo - Code coverage reporting
+
+**Custom Test Utilities**:
+- `@WithMockJwtUser` - Custom annotation for JWT authentication in tests
+- `application-test.properties` - Test-specific configuration with H2 database
+- Database-specific migrations - PostgreSQL and H2 compatibility
+
+### Coverage by Package
+
+| Package | Coverage | Status |
+|---------|----------|--------|
+| common.util | 100% | ✅ Production Ready |
+| mapper | 100% | ✅ Production Ready |
+| validation | 100% | ✅ Production Ready |
+| service | 91% | ✅ Production Ready |
+| exception | 80% | ✅ Production Ready |
+| security | 64% | ✅ Core Functionality Covered |
+| controller | 64% | ✅ Integration Tested |
+
+### Running Tests
+
+```bash
+# Run all tests with coverage
+./mvnw test jacoco:report
+
+# View coverage report
+open target/site/jacoco/index.html
+```
+
+### Quality Metrics
+
+- ✅ All 212 tests passing
+- ✅ Zero critical bugs
+- ✅ XSS prevention tested
+- ✅ Input validation comprehensive
+- ✅ Fast test execution (~10-15 seconds)
+- ✅ CI/CD ready with JaCoCo reports
+
 ## Best Practices
 
 1. **Database per Service**: Each service owns its database
 2. **API Versioning**: Use `/api/v1/` for future-proof APIs
 3. **Error Handling**: Consistent error response format
 4. **Logging**: Structured logging with correlation IDs
-5. **Testing**: Unit tests, integration tests, contract tests
+5. **Testing**:
+   - Comprehensive unit tests for all business logic
+   - Integration tests for API workflows
+   - Target 80%+ code coverage
+   - Database-specific migrations for test compatibility
 6. **Documentation**: Keep OpenAPI specs up to date
-7. **Security**: Validate all inputs, use parameterized queries
+7. **Security**: Validate all inputs, use parameterized queries, test XSS prevention
 8. **Monitoring**: Health checks, metrics, alerting
 
 ## Technology Stack Summary

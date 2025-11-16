@@ -1,0 +1,449 @@
+databaseChangeLog:
+  - changeSet:
+      id: 001-initial-schema
+      author: question-service
+      changes:
+        # Create categories table first (no dependencies)
+        - createTable:
+            tableName: categories
+            columns:
+              - column:
+                  name: id
+                  type: BIGINT
+                  autoIncrement: true
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: name
+                  type: VARCHAR(100)
+                  constraints:
+                    nullable: false
+                    unique: true
+              - column:
+                  name: description
+                  type: VARCHAR(500)
+              - column:
+                  name: status
+                  type: VARCHAR(20)
+                  defaultValue: ACTIVE
+                  constraints:
+                    nullable: false
+              - column:
+                  name: created_at
+                  type: TIMESTAMP WITH TIME ZONE
+                  defaultValueComputed: CURRENT_TIMESTAMP
+                  constraints:
+                    nullable: false
+              - column:
+                  name: updated_at
+                  type: TIMESTAMP WITH TIME ZONE
+                  defaultValueComputed: CURRENT_TIMESTAMP
+                  constraints:
+                    nullable: false
+              - column:
+                  name: created_by
+                  type: BIGINT
+                  constraints:
+                    nullable: false
+
+        # Create difficulty levels table (no dependencies)
+        - createTable:
+            tableName: difficulty_levels
+            columns:
+              - column:
+                  name: id
+                  type: BIGINT
+                  autoIncrement: true
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: name
+                  type: VARCHAR(50)
+                  constraints:
+                    nullable: false
+                    unique: true
+              - column:
+                  name: description
+                  type: VARCHAR(255)
+              - column:
+                  name: display_order
+                  type: INTEGER
+                  constraints:
+                    nullable: false
+              - column:
+                  name: points_multiplier
+                  type: DOUBLE
+                  defaultValue: 1.0
+                  constraints:
+                    nullable: false
+              - column:
+                  name: created_at
+                  type: TIMESTAMP WITH TIME ZONE
+                  defaultValueComputed: CURRENT_TIMESTAMP
+                  constraints:
+                    nullable: false
+              - column:
+                  name: updated_at
+                  type: TIMESTAMP WITH TIME ZONE
+                  defaultValueComputed: CURRENT_TIMESTAMP
+                  constraints:
+                    nullable: false
+
+        # Create questions table with FKs to categories and difficulty_levels
+        - createTable:
+            tableName: questions
+            columns:
+              - column:
+                  name: id
+                  type: BIGINT
+                  autoIncrement: true
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: text
+                  type: VARCHAR(1000)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: type
+                  type: VARCHAR(50)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: status
+                  type: VARCHAR(50)
+                  defaultValue: DRAFT
+                  constraints:
+                    nullable: false
+              - column:
+                  name: category_id
+                  type: BIGINT
+                  constraints:
+                    nullable: false
+              - column:
+                  name: difficulty_level_id
+                  type: BIGINT
+                  constraints:
+                    nullable: false
+              - column:
+                  name: points
+                  type: INTEGER
+                  constraints:
+                    nullable: false
+              - column:
+                  name: created_at
+                  type: TIMESTAMP WITH TIME ZONE
+                  defaultValueComputed: CURRENT_TIMESTAMP
+                  constraints:
+                    nullable: false
+              - column:
+                  name: updated_at
+                  type: TIMESTAMP WITH TIME ZONE
+                  defaultValueComputed: CURRENT_TIMESTAMP
+                  constraints:
+                    nullable: false
+              - column:
+                  name: created_by
+                  type: BIGINT
+                  constraints:
+                    nullable: false
+
+        # Create answers table with FK to questions
+        - createTable:
+            tableName: answers
+            columns:
+              - column:
+                  name: id
+                  type: BIGINT
+                  autoIncrement: true
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: text
+                  type: VARCHAR(500)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: is_correct
+                  type: BOOLEAN
+                  defaultValueBoolean: false
+                  constraints:
+                    nullable: false
+              - column:
+                  name: image_url
+                  type: VARCHAR(500)
+              - column:
+                  name: question_id
+                  type: BIGINT
+                  constraints:
+                    nullable: false
+              - column:
+                  name: created_at
+                  type: TIMESTAMP WITH TIME ZONE
+                  defaultValueComputed: CURRENT_TIMESTAMP
+                  constraints:
+                    nullable: false
+              - column:
+                  name: updated_at
+                  type: TIMESTAMP WITH TIME ZONE
+                  defaultValueComputed: CURRENT_TIMESTAMP
+                  constraints:
+                    nullable: false
+
+        # Add Foreign Keys
+        - addForeignKeyConstraint:
+            baseTableName: questions
+            baseColumnNames: category_id
+            constraintName: fk_question_category
+            referencedTableName: categories
+            referencedColumnNames: id
+            onDelete: RESTRICT
+
+        - addForeignKeyConstraint:
+            baseTableName: questions
+            baseColumnNames: difficulty_level_id
+            constraintName: fk_question_difficulty
+            referencedTableName: difficulty_levels
+            referencedColumnNames: id
+            onDelete: RESTRICT
+
+        - addForeignKeyConstraint:
+            baseTableName: answers
+            baseColumnNames: question_id
+            constraintName: fk_answer_question
+            referencedTableName: questions
+            referencedColumnNames: id
+            onDelete: CASCADE
+
+        # Add CHECK constraints
+        - sql:
+            sql: >
+              ALTER TABLE questions
+              ADD CONSTRAINT chk_questions_points_positive
+              CHECK (points > 0);
+
+        - sql:
+            sql: >
+              ALTER TABLE questions
+              ADD CONSTRAINT chk_questions_status_valid
+              CHECK (status IN ('DRAFT', 'PENDING', 'VALIDATED', 'REJECTED', 'ARCHIVED'));
+
+        # Add Indexes - Categories
+        - createIndex:
+            indexName: idx_category_status
+            tableName: categories
+            columns:
+              - column:
+                  name: status
+
+        - createIndex:
+            indexName: idx_category_name
+            tableName: categories
+            unique: true
+            columns:
+              - column:
+                  name: name
+
+        # Add Indexes - Difficulty Levels
+        - createIndex:
+            indexName: idx_difficulty_level_name
+            tableName: difficulty_levels
+            unique: true
+            columns:
+              - column:
+                  name: name
+
+        - createIndex:
+            indexName: idx_difficulty_level_display_order
+            tableName: difficulty_levels
+            columns:
+              - column:
+                  name: display_order
+
+        # Add Indexes - Questions
+        - createIndex:
+            indexName: idx_question_status
+            tableName: questions
+            columns:
+              - column:
+                  name: status
+
+        - createIndex:
+            indexName: idx_question_category_id
+            tableName: questions
+            columns:
+              - column:
+                  name: category_id
+
+        - createIndex:
+            indexName: idx_question_difficulty_level_id
+            tableName: questions
+            columns:
+              - column:
+                  name: difficulty_level_id
+
+        - createIndex:
+            indexName: idx_question_created_by
+            tableName: questions
+            columns:
+              - column:
+                  name: created_by
+
+        - createIndex:
+            indexName: idx_question_created_by_status
+            tableName: questions
+            columns:
+              - column:
+                  name: created_by
+              - column:
+                  name: status
+
+        - createIndex:
+            indexName: idx_question_created_at
+            tableName: questions
+            columns:
+              - column:
+                  name: created_at
+                  descending: true
+
+        # Add Indexes - Answers
+        - createIndex:
+            indexName: idx_answer_question_id
+            tableName: answers
+            columns:
+              - column:
+                  name: question_id
+
+        # Insert default categories
+        - insert:
+            tableName: categories
+            columns:
+              - column:
+                  name: name
+                  value: Science
+              - column:
+                  name: description
+                  value: Science and technology questions
+              - column:
+                  name: status
+                  value: ACTIVE
+              - column:
+                  name: created_by
+                  value: 1
+
+        - insert:
+            tableName: categories
+            columns:
+              - column:
+                  name: name
+                  value: History
+              - column:
+                  name: description
+                  value: Historical events and figures
+              - column:
+                  name: status
+                  value: ACTIVE
+              - column:
+                  name: created_by
+                  value: 1
+
+        - insert:
+            tableName: categories
+            columns:
+              - column:
+                  name: name
+                  value: Geography
+              - column:
+                  name: description
+                  value: World geography and locations
+              - column:
+                  name: status
+                  value: ACTIVE
+              - column:
+                  name: created_by
+                  value: 1
+
+        - insert:
+            tableName: categories
+            columns:
+              - column:
+                  name: name
+                  value: Sports
+              - column:
+                  name: description
+                  value: Sports and athletics
+              - column:
+                  name: status
+                  value: ACTIVE
+              - column:
+                  name: created_by
+                  value: 1
+
+        - insert:
+            tableName: categories
+            columns:
+              - column:
+                  name: name
+                  value: Arts
+              - column:
+                  name: description
+                  value: Arts, music, and culture
+              - column:
+                  name: status
+                  value: ACTIVE
+              - column:
+                  name: created_by
+                  value: 1
+
+        # Insert default difficulty levels
+        - insert:
+            tableName: difficulty_levels
+            columns:
+              - column:
+                  name: name
+                  value: Easy
+              - column:
+                  name: description
+                  value: Questions suitable for beginners
+              - column:
+                  name: display_order
+                  value: 1
+              - column:
+                  name: points_multiplier
+                  value: 1.0
+
+        - insert:
+            tableName: difficulty_levels
+            columns:
+              - column:
+                  name: name
+                  value: Medium
+              - column:
+                  name: description
+                  value: Questions of moderate difficulty
+              - column:
+                  name: display_order
+                  value: 2
+              - column:
+                  name: points_multiplier
+                  value: 1.5
+
+        - insert:
+            tableName: difficulty_levels
+            columns:
+              - column:
+                  name: name
+                  value: Hard
+              - column:
+                  name: description
+                  value: Challenging questions for advanced players
+              - column:
+                  name: display_order
+                  value: 3
+              - column:
+                  name: points_multiplier
+                  value: 2.0
