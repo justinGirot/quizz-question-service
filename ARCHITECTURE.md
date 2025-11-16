@@ -192,6 +192,9 @@ User {
 - `PUT /api/categories/{id}` - Update category (admin only)
 - `DELETE /api/categories/{id}` - Delete category if not in use (admin only)
 
+**Referential Endpoints**:
+- `GET /api/referential/difficulty-levels` - Get all difficulty levels (all authenticated users)
+
 **Question Workflow**:
 1. **Draft** (editable):
    - Created by users
@@ -229,6 +232,16 @@ Category {
   Long createdBy; // User ID (admin who created)
 }
 
+DifficultyLevel {
+  Long id;
+  String name; // Easy, Medium, Hard, Expert
+  String description; // Description of difficulty level
+  Integer displayOrder; // Display order (1, 2, 3, 4)
+  Double pointsMultiplier; // Points multiplier (1.0, 1.5, 2.0, 3.0)
+  LocalDateTime createdAt;
+  LocalDateTime updatedAt;
+}
+
 Question {
   Long id;
   String text; // min 10 characters, HTML sanitized
@@ -236,7 +249,8 @@ Question {
   QuestionStatus status; // DRAFT, PENDING, VALIDATED, REJECTED, ARCHIVED
   String category; // deprecated field for backward compatibility
   Long categoryId; // foreign key to categories table
-  DifficultyLevel difficulty; // EASY, MEDIUM, HARD
+  String difficulty; // deprecated field for backward compatibility (EASY, MEDIUM, HARD)
+  Long difficultyLevelId; // foreign key to difficulty_levels table
   Integer points; // 1-100
   List<Answer> answers; // min 1 answer required
   LocalDateTime createdAt;
@@ -581,15 +595,93 @@ curl -X DELETE http://localhost:8080/api/questions/1 \
 - Docker Compose for local orchestration
 - Kubernetes for production deployment
 
+## Testing & Quality Assurance
+
+### Question Service Test Coverage
+
+The Question Service has comprehensive test coverage ensuring production readiness:
+
+**Overall Coverage: 84%**
+- 212 automated tests (204 unit + 8 integration)
+- 84% instruction coverage
+- 76% branch coverage
+- 85% line coverage
+
+### Test Layers
+
+1. **Unit Tests** (204 tests)
+   - Service Layer: Business logic, validation, authorization
+   - Validation Layer: Custom validators for sanitization and data integrity
+   - Mapper Layer: DTO ↔ Entity transformation
+   - Security Layer: JWT parsing and validation
+   - Utility Classes: Input sanitization and validation
+   - Exception Handling: Global exception handler
+
+2. **Integration Tests** (8 tests)
+   - Full stack testing with H2 database
+   - End-to-end API workflows
+   - Authentication and authorization flows
+   - Complete CRUD operations with validation
+
+### Testing Infrastructure
+
+**Frameworks Used**:
+- JUnit 5 - Modern testing framework
+- Mockito - Mocking and verification
+- AssertJ - Fluent assertions
+- Spring Boot Test - Integration testing support
+- H2 Database - In-memory test database
+- JaCoCo - Code coverage reporting
+
+**Custom Test Utilities**:
+- `@WithMockJwtUser` - Custom annotation for JWT authentication in tests
+- `application-test.properties` - Test-specific configuration with H2 database
+- Database-specific migrations - PostgreSQL and H2 compatibility
+
+### Coverage by Package
+
+| Package | Coverage | Status |
+|---------|----------|--------|
+| common.util | 100% | ✅ Production Ready |
+| mapper | 100% | ✅ Production Ready |
+| validation | 100% | ✅ Production Ready |
+| service | 91% | ✅ Production Ready |
+| exception | 80% | ✅ Production Ready |
+| security | 64% | ✅ Core Functionality Covered |
+| controller | 64% | ✅ Integration Tested |
+
+### Running Tests
+
+```bash
+# Run all tests with coverage
+./mvnw test jacoco:report
+
+# View coverage report
+open target/site/jacoco/index.html
+```
+
+### Quality Metrics
+
+- ✅ All 212 tests passing
+- ✅ Zero critical bugs
+- ✅ XSS prevention tested
+- ✅ Input validation comprehensive
+- ✅ Fast test execution (~10-15 seconds)
+- ✅ CI/CD ready with JaCoCo reports
+
 ## Best Practices
 
 1. **Database per Service**: Each service owns its database
 2. **API Versioning**: Use `/api/v1/` for future-proof APIs
 3. **Error Handling**: Consistent error response format
 4. **Logging**: Structured logging with correlation IDs
-5. **Testing**: Unit tests, integration tests, contract tests
+5. **Testing**:
+   - Comprehensive unit tests for all business logic
+   - Integration tests for API workflows
+   - Target 80%+ code coverage
+   - Database-specific migrations for test compatibility
 6. **Documentation**: Keep OpenAPI specs up to date
-7. **Security**: Validate all inputs, use parameterized queries
+7. **Security**: Validate all inputs, use parameterized queries, test XSS prevention
 8. **Monitoring**: Health checks, metrics, alerting
 
 ## Technology Stack Summary

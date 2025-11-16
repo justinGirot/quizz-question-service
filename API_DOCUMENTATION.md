@@ -472,6 +472,60 @@ Deletes a category. Cannot delete if used in questions.
 
 ---
 
+## Referential API
+
+### Get Difficulty Levels
+
+Retrieves all available difficulty levels for use in dropdowns and question creation.
+
+**Endpoint**: `GET /api/referential/difficulty-levels`
+**Auth Required**: Yes
+**Admin Required**: No
+
+**Response**: `200 OK`
+```json
+[
+  {
+    "id": 1,
+    "name": "Easy",
+    "description": "Easy level questions suitable for beginners",
+    "displayOrder": 1,
+    "pointsMultiplier": 1.0
+  },
+  {
+    "id": 2,
+    "name": "Medium",
+    "description": "Medium difficulty questions for intermediate users",
+    "displayOrder": 2,
+    "pointsMultiplier": 1.5
+  },
+  {
+    "id": 3,
+    "name": "Hard",
+    "description": "Hard questions for advanced users",
+    "displayOrder": 3,
+    "pointsMultiplier": 2.0
+  },
+  {
+    "id": 4,
+    "name": "Expert",
+    "description": "Expert level questions for professionals",
+    "displayOrder": 4,
+    "pointsMultiplier": 3.0
+  }
+]
+```
+
+**Error Responses**:
+- `401 Unauthorized` - No auth token
+
+**Notes**:
+- Difficulty levels are pre-populated via database migrations
+- The `pointsMultiplier` can be used to calculate final points based on question base points
+- Results are ordered by `displayOrder` ascending
+
+---
+
 ## Health & Metrics API
 
 ### Health Check
