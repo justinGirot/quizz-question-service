@@ -1,10 +1,14 @@
 package com.quizz.question.mapper;
 
 import com.quizz.question.dto.AnswerDTO;
+import com.quizz.question.dto.CategoryDTO;
 import com.quizz.question.dto.CreateQuestionRequest;
+import com.quizz.question.dto.DifficultyLevelDTO;
 import com.quizz.question.dto.QuestionDTO;
 import com.quizz.question.dto.UpdateQuestionRequest;
 import com.quizz.question.model.Answer;
+import com.quizz.question.model.Category;
+import com.quizz.question.model.DifficultyLevel;
 import com.quizz.question.model.Question;
 import com.quizz.question.model.QuestionStatus;
 import org.springframework.stereotype.Component;
@@ -20,13 +24,18 @@ public class QuestionMapper {
             return null;
         }
 
+        CategoryDTO categoryDTO = toCategoryDTO(question.getCategory());
+        DifficultyLevelDTO difficultyLevelDTO = toDifficultyLevelDTO(question.getDifficultyLevel());
+
         return QuestionDTO.builder()
                 .id(question.getId())
                 .text(question.getText())
                 .type(question.getType())
                 .status(question.getStatus())
-                .category(question.getCategory())
-                .difficulty(question.getDifficulty())
+                .category(question.getCategory() != null ? question.getCategory().getName() : null)
+                .categoryRef(categoryDTO)
+                .difficulty(null) // Removed legacy field
+                .difficultyLevel(difficultyLevelDTO)
                 .points(question.getPoints())
                 .answers(toAnswerDTOList(question.getAnswers()))
                 .createdAt(question.getCreatedAt())
@@ -68,12 +77,11 @@ public class QuestionMapper {
                 .text(request.getText())
                 .type(request.getType())
                 .status(QuestionStatus.DRAFT)
-                .category(request.getCategory())
-                .difficulty(request.getDifficulty())
                 .points(request.getPoints())
                 .createdBy(userId)
                 .build();
 
+        // Category and difficulty level will be set by service layer
         // Create and add answers
         if (request.getAnswers() != null) {
             request.getAnswers().forEach(answerDTO -> {
@@ -93,10 +101,9 @@ public class QuestionMapper {
         question.setText(request.getText());
         question.setType(request.getType());
         question.setStatus(request.getStatus());
-        question.setCategory(request.getCategory());
-        question.setDifficulty(request.getDifficulty());
         question.setPoints(request.getPoints());
 
+        // Category and difficulty level are set by service layer via FK references
         // Update answers - clear existing and add new ones
         question.clearAnswers();
 
@@ -110,5 +117,43 @@ public class QuestionMapper {
                 question.addAnswer(answer);
             });
         }
+    }
+
+    /**
+     * Convert Category entity to DTO
+     */
+    private CategoryDTO toCategoryDTO(Category category) {
+        if (category == null) {
+            return null;
+        }
+
+        return CategoryDTO.builder()
+                .id(category.getId())
+                .name(category.getName())
+                .description(category.getDescription())
+                .status(category.getStatus())
+                .createdAt(category.getCreatedAt())
+                .updatedAt(category.getUpdatedAt())
+                .createdBy(category.getCreatedBy())
+                .build();
+    }
+
+    /**
+     * Convert DifficultyLevel to DTO
+     */
+    private DifficultyLevelDTO toDifficultyLevelDTO(DifficultyLevel difficultyLevel) {
+        if (difficultyLevel == null) {
+            return null;
+        }
+
+        return DifficultyLevelDTO.builder()
+                .id(difficultyLevel.getId())
+                .name(difficultyLevel.getName())
+                .description(difficultyLevel.getDescription())
+                .displayOrder(difficultyLevel.getDisplayOrder())
+                .pointsMultiplier(difficultyLevel.getPointsMultiplier())
+                .createdAt(difficultyLevel.getCreatedAt())
+                .updatedAt(difficultyLevel.getUpdatedAt())
+                .build();
     }
 }

@@ -19,8 +19,19 @@ public class QuestionDTO {
     private String text;
     private QuestionType type;
     private QuestionStatus status;
+
+    // Legacy category field (kept for backward compatibility)
     private String category;
+
+    // New category object reference
+    private CategoryDTO categoryRef;
+
+    // Legacy difficulty field (kept for backward compatibility)
     private DifficultyLevel difficulty;
+
+    // New difficulty level object reference
+    private DifficultyLevelDTO difficultyLevel;
+
     private Integer points;
     private List<AnswerDTO> answers;
     private LocalDateTime createdAt;

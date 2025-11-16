@@ -38,16 +38,13 @@ public class Question {
     @Builder.Default
     private QuestionStatus status = QuestionStatus.DRAFT;
 
-    @Column(nullable = false, length = 100)
-    private String category; // Deprecated - kept for backward compatibility
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "category_id", nullable = false)
+    private Category category;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "category_id")
-    private Category categoryRef;
-
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 20)
-    private DifficultyLevel difficulty;
+    @JoinColumn(name = "difficulty_level_id", nullable = false)
+    private DifficultyLevel difficultyLevel;
 
     @Column(nullable = false)
     private Integer points;

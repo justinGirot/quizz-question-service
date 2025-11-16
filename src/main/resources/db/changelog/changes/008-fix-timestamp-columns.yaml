@@ -1,0 +1,45 @@
+databaseChangeLog:
+  - changeSet:
+      id: 008-fix-timestamp-columns
+      author: question-service
+      dbms: postgresql
+      changes:
+        # Convert timestamp columns to TIMESTAMPTZ for timezone support
+        # Questions table
+        - modifyDataType:
+            tableName: questions
+            columnName: created_at
+            newDataType: TIMESTAMP WITH TIME ZONE
+
+        - modifyDataType:
+            tableName: questions
+            columnName: updated_at
+            newDataType: TIMESTAMP WITH TIME ZONE
+
+        # Answers table
+        - modifyDataType:
+            tableName: answers
+            columnName: created_at
+            newDataType: TIMESTAMP WITH TIME ZONE
+
+        # Categories table
+        - modifyDataType:
+            tableName: categories
+            columnName: created_at
+            newDataType: TIMESTAMP WITH TIME ZONE
+
+        - modifyDataType:
+            tableName: categories
+            columnName: updated_at
+            newDataType: TIMESTAMP WITH TIME ZONE
+
+        # Difficulty levels table
+        - modifyDataType:
+            tableName: difficulty_levels
+            columnName: created_at
+            newDataType: TIMESTAMP WITH TIME ZONE
+
+        - modifyDataType:
+            tableName: difficulty_levels
+            columnName: updated_at
+            newDataType: TIMESTAMP WITH TIME ZONE

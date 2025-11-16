@@ -7,6 +7,7 @@ import com.quizz.question.dto.QuestionDTO;
 import com.quizz.question.dto.UpdateQuestionRequest;
 import com.quizz.question.model.QuestionStatus;
 import com.quizz.question.security.JwtAuthentication;
+import com.quizz.question.security.UserContext;
 import com.quizz.question.service.QuestionService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -20,6 +21,9 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -56,14 +60,17 @@ public class QuestionController {
             Authentication authentication) {
 
         JwtAuthentication jwtAuth = (JwtAuthentication) authentication;
-        Long userId = jwtAuth.getUserId();
+        UserContext userContext = UserContext.builder()
+                .userId(jwtAuth.getUserId())
+                .isAdmin(jwtAuth.isAdmin())
+                .build();
 
-        log.info("Creating question for user: {}", userId);
+        log.info("Creating question for user: {}", userContext.getUserId());
 
         // Sanitize input data
         sanitizationInterceptor.sanitize(request);
 
-        QuestionDTO createdQuestion = questionService.createQuestion(request, userId);
+        QuestionDTO createdQuestion = questionService.createQuestion(request, userContext);
 
         return ResponseEntity.status(HttpStatus.CREATED).body(createdQuestion);
     }
@@ -86,21 +93,25 @@ public class QuestionController {
     }
 
     @GetMapping
-    @Operation(summary = "List questions", description = "Retrieves all questions with optional filtering by status and category")
+    @Operation(summary = "List questions with pagination", description = "Retrieves questions with optional filtering by status and category, with pagination support (default: 10 items per page)")
     @ApiResponses({
         @ApiResponse(responseCode = "200", description = "Questions retrieved successfully",
-                content = @Content(array = @ArraySchema(schema = @Schema(implementation = QuestionDTO.class)))),
+                content = @Content(schema = @Schema(implementation = Page.class))),
         @ApiResponse(responseCode = "401", description = "Unauthorized")
     })
-    public ResponseEntity<List<QuestionDTO>> getQuestions(
+    public ResponseEntity<Page<QuestionDTO>> getQuestions(
             @Parameter(description = "Filter by question statuses")
             @RequestParam(required = false, name = ApiConstants.STATUSES_PARAM) List<QuestionStatus> statuses,
 
-            @Parameter(description = "Filter by categories")
-            @RequestParam(required = false, name = ApiConstants.CATEGORIES_PARAM) List<String> categories) {
+            @Parameter(description = "Filter by category IDs")
+            @RequestParam(required = false, name = "categoryIds") List<Long> categoryIds,
 
-        log.info("Fetching questions with filters - statuses: {}, categories: {}", statuses, categories);
-        List<QuestionDTO> questions = questionService.getQuestions(statuses, categories);
+            @Parameter(description = "Pagination parameters (page, size, sort)")
+            @PageableDefault(size = 10, sort = "createdAt") Pageable pageable) {
+
+        log.info("Fetching questions with pagination - statuses: {}, categoryIds: {}, page: {}, size: {}",
+                statuses, categoryIds, pageable.getPageNumber(), pageable.getPageSize());
+        Page<QuestionDTO> questions = questionService.getQuestionsPageable(statuses, categoryIds, pageable);
 
         return ResponseEntity.ok(questions);
     }
@@ -125,15 +136,17 @@ public class QuestionController {
             Authentication authentication) {
 
         JwtAuthentication jwtAuth = (JwtAuthentication) authentication;
-        Long userId = jwtAuth.getUserId();
-        boolean isAdmin = jwtAuth.isAdmin();
+        UserContext userContext = UserContext.builder()
+                .userId(jwtAuth.getUserId())
+                .isAdmin(jwtAuth.isAdmin())
+                .build();
 
-        log.info("Updating question {} by user {} (admin: {})", id, userId, isAdmin);
+        log.info("Updating question {} by user {} (admin: {})", id, userContext.getUserId(), userContext.isAdmin());
 
         // Sanitize input data
         sanitizationInterceptor.sanitize(request);
 
-        QuestionDTO updatedQuestion = questionService.updateQuestion(id, request, userId, isAdmin);
+        QuestionDTO updatedQuestion = questionService.updateQuestion(id, request, userContext);
 
         return ResponseEntity.ok(updatedQuestion);
     }
@@ -152,11 +165,13 @@ public class QuestionController {
             Authentication authentication) {
 
         JwtAuthentication jwtAuth = (JwtAuthentication) authentication;
-        Long userId = jwtAuth.getUserId();
-        boolean isAdmin = jwtAuth.isAdmin();
+        UserContext userContext = UserContext.builder()
+                .userId(jwtAuth.getUserId())
+                .isAdmin(jwtAuth.isAdmin())
+                .build();
 
-        log.info("Deleting question {} by user {} (admin: {})", id, userId, isAdmin);
-        questionService.deleteQuestion(id, userId, isAdmin);
+        log.info("Deleting question {} by user {} (admin: {})", id, userContext.getUserId(), userContext.isAdmin());
+        questionService.deleteQuestion(id, userContext);
 
         return ResponseEntity.ok(Map.of("message", ApiConstants.QUESTION_DELETED_MESSAGE));
     }

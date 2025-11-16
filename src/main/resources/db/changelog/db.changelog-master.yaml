@@ -7,3 +7,13 @@ databaseChangeLog:
       file: db/changelog/changes/003-create-categories-table.yaml
   - include:
       file: db/changelog/changes/004-update-questions-category-fk.yaml
+  - include:
+      file: db/changelog/changes/005-create-difficulty-levels-table.yaml
+  - include:
+      file: db/changelog/changes/006-update-questions-difficulty-fk.yaml
+  - include:
+      file: db/changelog/changes/007-add-database-constraints-and-indexes.yaml
+  - include:
+      file: db/changelog/changes/008-fix-timestamp-columns.yaml
+  - include:
+      file: db/changelog/changes/009-drop-legacy-columns.yaml

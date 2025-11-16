@@ -8,6 +8,7 @@ import com.quizz.question.exception.ValidationException;
 import com.quizz.question.model.Category;
 import com.quizz.question.model.CategoryStatus;
 import com.quizz.question.repository.CategoryRepository;
+import com.quizz.question.repository.QuestionRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -25,6 +26,7 @@ import java.util.stream.Collectors;
 public class CategoryServiceImpl implements CategoryService {
 
     private final CategoryRepository categoryRepository;
+    private final QuestionRepository questionRepository;
 
     @Override
     @Transactional
@@ -108,8 +110,10 @@ public class CategoryServiceImpl implements CategoryService {
         Category category = categoryRepository.findById(id)
                 .orElseThrow(() -> new QuestionNotFoundException("Category not found with ID: " + id));
 
-        // TODO: Check if category is used in any questions
-        // For now, we'll allow deletion
+        // Check if category is used in any questions
+        if (questionRepository.existsByCategory_Id(id)) {
+            throw new ValidationException("Cannot delete category. It is currently used by one or more questions.");
+        }
 
         categoryRepository.delete(category);
         log.info("Category deleted: {}", id);

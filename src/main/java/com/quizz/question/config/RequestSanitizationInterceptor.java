@@ -56,7 +56,9 @@ public class RequestSanitizationInterceptor implements HandlerInterceptor {
         }
 
         request.setText(sanitizationUtil.sanitizeQuestionText(request.getText()));
-        request.setCategory(sanitizationUtil.sanitizeCategory(request.getCategory()));
+        if (request.getCategoryName() != null) {
+            request.setCategoryName(sanitizationUtil.sanitizeCategory(request.getCategoryName()));
+        }
 
         if (request.getAnswers() != null) {
             request.getAnswers().forEach(this::sanitize);
@@ -72,7 +74,9 @@ public class RequestSanitizationInterceptor implements HandlerInterceptor {
         }
 
         request.setText(sanitizationUtil.sanitizeQuestionText(request.getText()));
-        request.setCategory(sanitizationUtil.sanitizeCategory(request.getCategory()));
+        if (request.getCategoryName() != null) {
+            request.setCategoryName(sanitizationUtil.sanitizeCategory(request.getCategoryName()));
+        }
 
         if (request.getAnswers() != null) {
             request.getAnswers().forEach(this::sanitize);

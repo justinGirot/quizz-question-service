@@ -1,0 +1,48 @@
+databaseChangeLog:
+  - changeSet:
+      id: 007-add-database-constraints-and-indexes
+      author: question-service
+      changes:
+        # Add CHECK constraint for points (must be positive)
+        - sql:
+            sql: >
+              ALTER TABLE questions
+              ADD CONSTRAINT chk_questions_points_positive
+              CHECK (points > 0);
+
+        # Add CHECK constraint for status (must be valid enum value)
+        - sql:
+            sql: >
+              ALTER TABLE questions
+              ADD CONSTRAINT chk_questions_status_valid
+              CHECK (status IN ('DRAFT', 'PENDING', 'VALIDATED', 'REJECTED', 'ARCHIVED'));
+
+        # Add CHECK constraint for difficulty (must be valid enum value)
+        - sql:
+            sql: >
+              ALTER TABLE questions
+              ADD CONSTRAINT chk_questions_difficulty_valid
+              CHECK (difficulty IN ('EASY', 'MEDIUM', 'HARD'));
+
+        # Add composite index for common query pattern (created_by, status)
+        - createIndex:
+            indexName: idx_question_created_by_status
+            tableName: questions
+            columns:
+              - column:
+                  name: created_by
+              - column:
+                  name: status
+
+        # Add index on created_at for ORDER BY queries
+        - createIndex:
+            indexName: idx_question_created_at
+            tableName: questions
+            columns:
+              - column:
+                  name: created_at
+                  descending: true
+
+        # Add index on status for filtering
+        # Note: This might be redundant with idx_question_status, but we're being explicit
+        # If idx_question_status already exists, this will be skipped

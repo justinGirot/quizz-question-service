@@ -14,9 +14,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
-import java.util.Arrays;
 import java.util.List;
-import java.util.stream.Collectors;
 
 @Component
 @RequiredArgsConstructor
@@ -50,19 +48,19 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                         JwtAuthentication authentication = new JwtAuthentication(userId, email, roles);
                         SecurityContextHolder.getContext().setAuthentication(authentication);
 
-                        log.info("✓ Authenticated user: {} (ID: {}, roles: {}) for {}", email, userId, roles, requestPath);
+                        log.debug("Authenticated user: {} (ID: {}) for {}", email, userId, requestPath);
                     } else {
-                        log.warn("✗ Invalid JWT claims: userId or email is null for {}", requestPath);
+                        log.warn("Invalid JWT claims: userId or email is null");
                     }
                 } else {
-                    log.warn("✗ Failed to parse JWT token for {}", requestPath);
+                    log.debug("Failed to parse JWT token");
                 }
             } else {
-                log.warn("✗ No JWT token found in cookies for {}", requestPath);
-                logReceivedCookies(request);
+                log.debug("No JWT token found in cookies");
             }
         } catch (Exception e) {
-            log.error("✗ Error processing JWT authentication for {}: {}", requestPath, e.getMessage(), e);
+            log.error("Error processing JWT authentication: {}", e.getMessage());
+            log.debug("JWT authentication error details", e);
         }
 
         filterChain.doFilter(request, response);
@@ -73,24 +71,10 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         if (cookies != null) {
             for (Cookie cookie : cookies) {
                 if (ApiConstants.AUTH_TOKEN_COOKIE.equals(cookie.getName())) {
-                    log.debug("Found {} cookie", ApiConstants.AUTH_TOKEN_COOKIE);
                     return cookie.getValue();
                 }
             }
         }
         return null;
-    }
-
-    private void logReceivedCookies(HttpServletRequest request) {
-        Cookie[] cookies = request.getCookies();
-        if (cookies == null || cookies.length == 0) {
-            log.warn("  → No cookies received in request");
-        } else {
-            String cookieNames = Arrays.stream(cookies)
-                    .map(Cookie::getName)
-                    .collect(Collectors.joining(", "));
-            log.warn("  → Received cookies: [{}]", cookieNames);
-            log.warn("  → Expected cookie: '{}'", ApiConstants.AUTH_TOKEN_COOKIE);
-        }
     }
 }

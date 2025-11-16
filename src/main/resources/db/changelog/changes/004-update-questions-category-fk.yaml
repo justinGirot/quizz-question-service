@@ -10,6 +10,71 @@ databaseChangeLog:
               - column:
                   name: category_id
                   type: BIGINT
+                  constraints:
+                    nullable: true  # Allow null during migration
+
+        # Migrate existing data from category string to category_id
+        # Create categories from distinct category strings and update references
+
+        # PostgreSQL version
+        - sql:
+            dbms: postgresql
+            sql: >
+              INSERT INTO categories (name, description, status, created_by, created_at, updated_at)
+              SELECT DISTINCT
+                q.category,
+                'Migrated from legacy category field',
+                'ACTIVE',
+                1,
+                CURRENT_TIMESTAMP,
+                CURRENT_TIMESTAMP
+              FROM questions q
+              WHERE q.category IS NOT NULL
+                AND q.category NOT IN (SELECT name FROM categories)
+              ON CONFLICT (name) DO NOTHING;
+
+        # H2 version - use MERGE
+        - sql:
+            dbms: h2
+            sql: >
+              MERGE INTO categories (name, description, status, created_by, created_at, updated_at)
+              SELECT DISTINCT
+                q.category,
+                'Migrated from legacy category field',
+                'ACTIVE',
+                1,
+                CURRENT_TIMESTAMP,
+                CURRENT_TIMESTAMP
+              FROM questions q
+              WHERE q.category IS NOT NULL
+                AND q.category NOT IN (SELECT name FROM categories);
+
+        # PostgreSQL version
+        - sql:
+            dbms: postgresql
+            sql: >
+              UPDATE questions q
+              SET category_id = c.id
+              FROM categories c
+              WHERE q.category = c.name
+                AND q.category_id IS NULL;
+
+        # H2 version - use standard UPDATE with subquery
+        - sql:
+            dbms: h2
+            sql: >
+              UPDATE questions
+              SET category_id = (
+                SELECT id FROM categories c WHERE c.name = questions.category
+              )
+              WHERE category_id IS NULL
+                AND category IS NOT NULL;
+
+        # Now make the column non-nullable since all data is migrated
+        - addNotNullConstraint:
+            tableName: questions
+            columnName: category_id
+            columnDataType: BIGINT
 
         # Create foreign key to categories table
         - addForeignKeyConstraint:
@@ -19,6 +84,7 @@ databaseChangeLog:
             referencedTableName: categories
             referencedColumnNames: id
             onDelete: RESTRICT
+            onUpdate: CASCADE
 
         # Create index on category_id
         - createIndex:
@@ -28,5 +94,9 @@ databaseChangeLog:
               - column:
                   name: category_id
 
-        # Note: Keep the old 'category' column for now for backward compatibility
-        # It will be removed in a future migration after data migration
+        # Make the old 'category' column nullable for backward compatibility
+        # Now that we're using category_id, the old column is optional
+        - dropNotNullConstraint:
+            tableName: questions
+            columnName: category
+            columnDataType: VARCHAR(100)

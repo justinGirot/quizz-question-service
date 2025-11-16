@@ -1,0 +1,57 @@
+databaseChangeLog:
+  - changeSet:
+      id: 006-update-questions-difficulty-fk
+      author: question-service
+      changes:
+        # Add new column for difficulty level foreign key
+        - addColumn:
+            tableName: questions
+            columns:
+              - column:
+                  name: difficulty_level_id
+                  type: BIGINT
+                  constraints:
+                    nullable: true  # Allow null during migration
+
+        # Migrate existing data from difficulty enum to difficulty_level_id
+        # Map EASY -> 1, MEDIUM -> 2, HARD -> 3
+        - sql:
+            sql: >
+              UPDATE questions
+              SET difficulty_level_id = CASE
+                WHEN difficulty = 'EASY' THEN 1
+                WHEN difficulty = 'MEDIUM' THEN 2
+                WHEN difficulty = 'HARD' THEN 3
+                ELSE 1
+              END;
+
+        # Now make the column non-nullable since all data is migrated
+        - addNotNullConstraint:
+            tableName: questions
+            columnName: difficulty_level_id
+            columnDataType: BIGINT
+
+        # Add foreign key constraint
+        - addForeignKeyConstraint:
+            baseTableName: questions
+            baseColumnNames: difficulty_level_id
+            constraintName: fk_questions_difficulty_level
+            referencedTableName: difficulty_levels
+            referencedColumnNames: id
+            onDelete: RESTRICT
+            onUpdate: CASCADE
+
+        # Add index for better query performance
+        - createIndex:
+            indexName: idx_question_difficulty_level
+            tableName: questions
+            columns:
+              - column:
+                  name: difficulty_level_id
+
+        # Make the old 'difficulty' column nullable for backward compatibility
+        # Now that we're using difficulty_level_id, the old column is optional
+        - dropNotNullConstraint:
+            tableName: questions
+            columnName: difficulty
+            columnDataType: VARCHAR(20)
