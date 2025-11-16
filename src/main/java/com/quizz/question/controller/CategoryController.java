@@ -41,15 +41,26 @@ public class CategoryController {
     private final CategoryService categoryService;
 
     @GetMapping("/active")
-    @Operation(summary = "Get active categories", description = "Retrieves all active categories for question creation")
+    @Operation(summary = "Get active categories",
+               description = "Retrieves active categories. If groupId provided, returns public + group-specific categories. Otherwise, returns only public categories.")
     @ApiResponses({
         @ApiResponse(responseCode = "200", description = "Active categories retrieved successfully",
                 content = @Content(array = @ArraySchema(schema = @Schema(implementation = CategoryDTO.class)))),
         @ApiResponse(responseCode = "401", description = "Unauthorized")
     })
-    public ResponseEntity<List<CategoryDTO>> getActiveCategories() {
-        log.info("Fetching active categories");
-        List<CategoryDTO> categories = categoryService.getActiveCategories();
+    public ResponseEntity<List<CategoryDTO>> getActiveCategories(
+            @Parameter(description = "Optional group ID to get group-specific categories")
+            @RequestParam(required = false) Long groupId) {
+
+        log.info("Fetching active categories (groupId: {})", groupId);
+
+        List<CategoryDTO> categories;
+        if (groupId != null) {
+            categories = categoryService.getAccessibleCategories(groupId);
+        } else {
+            categories = categoryService.getPublicCategories();
+        }
+
         return ResponseEntity.ok(categories);
     }
 

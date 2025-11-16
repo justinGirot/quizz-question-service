@@ -27,6 +27,22 @@ public interface CategoryService {
     List<CategoryDTO> getActiveCategories();
 
     /**
+     * Get categories accessible for a specific group
+     * Returns: public categories + group-specific categories
+     */
+    List<CategoryDTO> getAccessibleCategories(Long groupId);
+
+    /**
+     * Get only public categories (groupId is null)
+     */
+    List<CategoryDTO> getPublicCategories();
+
+    /**
+     * Get categories for a specific group
+     */
+    List<CategoryDTO> getGroupCategories(Long groupId);
+
+    /**
      * Get category by ID
      */
     CategoryDTO getCategoryById(Long id);
